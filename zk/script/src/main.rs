@@ -15,14 +15,20 @@ use std::fs;
 use std::process::ExitCode;
 
 use serde::Deserialize;
-use sp1_sdk::{include_elf, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
+use sp1_sdk::blocking::prover::{ProveRequest, Prover};
+use sp1_sdk::blocking::ProverClient;
+use sp1_sdk::{include_elf, Elf, ProvingKey, SP1ProofWithPublicValues, SP1Stdin};
 
 use grading_core::{
     commit_answer_key, encode_answer_key, encode_answer_sheet, hash_answer_sheet, AnswerKey,
     AnswerSheet, CancelPolicy, KeyEntry,
 };
 
-const ELF: &[u8] = include_elf!("ispat-program");
+/// `include_elf!` yields `Elf::Static` over embedded bytes; constructing it
+/// per call sidesteps any Clone/Copy assumptions about the `Elf` type.
+fn elf() -> Elf {
+    include_elf!("ispat-program")
+}
 
 #[derive(Deserialize)]
 struct KeyFile {
@@ -93,20 +99,20 @@ fn run(args: &[String], mode: Mode) -> Result<(), String> {
     match mode {
         Mode::Execute => {
             let (public_values, report) = client
-                .execute(ELF, &stdin)
+                .execute(elf(), stdin)
                 .run()
                 .map_err(|e| format!("execution failed: {e}"))?;
             println!("cycles         : {}", report.total_instruction_count());
             print_public_values(public_values.as_slice())?;
         }
         Mode::Prove => {
-            let (pk, vk) = client.setup(ELF);
+            let pk = client.setup(elf()).map_err(|e| format!("setup failed: {e}"))?;
             let proof = client
-                .prove(&pk, &stdin)
+                .prove(&pk, stdin)
                 .run()
                 .map_err(|e| format!("proving failed: {e}"))?;
             client
-                .verify(&proof, &vk)
+                .verify(&proof, pk.verifying_key(), None)
                 .map_err(|e| format!("self-verification failed: {e}"))?;
             print_public_values(proof.public_values.as_slice())?;
             let out = flag(args, "--out").unwrap_or_else(|_| "proof.bin".into());
@@ -121,9 +127,9 @@ fn verify(args: &[String]) -> Result<(), String> {
     let path = flag(args, "--proof")?;
     let proof = SP1ProofWithPublicValues::load(&path).map_err(|e| format!("loading proof: {e}"))?;
     let client = ProverClient::from_env();
-    let (_, vk) = client.setup(ELF);
+    let pk = client.setup(elf()).map_err(|e| format!("setup failed: {e}"))?;
     client
-        .verify(&proof, &vk)
+        .verify(&proof, pk.verifying_key(), None)
         .map_err(|e| format!("VERIFICATION FAILED: {e}"))?;
     println!("proof valid ✓");
     print_public_values(proof.public_values.as_slice())
