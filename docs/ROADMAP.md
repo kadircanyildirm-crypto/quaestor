@@ -7,9 +7,9 @@ academic attention and collaboration requests.
 ## Weeks 1–2 — Core engine ✅ / hardening
 - [x] Workspace, `grading-core` (model, canonical encoding, commitments, scoring)
 - [x] 15 unit/integration tests, `no_std` build
-- [ ] Property-based tests (proptest): score bounds, encoding injectivity,
-      commitment binding under random mutations
-- [ ] CI (GitHub Actions): test + `no_std` build + fmt/clippy on every push
+- [x] Property-based tests (proptest): score bounds, commitment binding under
+      random mutations, monotonicity, count partitioning (11 properties)
+- [x] CI (GitHub Actions): test + `no_std` build + fmt/clippy on every push
 
 ## Weeks 3–4 — First proof
 - [ ] WSL2 Ubuntu + SP1 toolchain (proving is Linux-side; core dev stays on Windows)

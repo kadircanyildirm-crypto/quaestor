@@ -30,14 +30,24 @@ pub enum ScoreError {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeyError {
-    TooManyQuestions { count: usize },
+    TooManyQuestions {
+        count: usize,
+    },
     /// `num_choices` must be at least 2 for a multiple-choice exam.
-    TooFewChoices { num_choices: u8 },
-    DuplicateQuestionId { question_id: u32 },
+    TooFewChoices {
+        num_choices: u8,
+    },
+    DuplicateQuestionId {
+        question_id: u32,
+    },
     /// A non-cancelled question must accept at least one choice.
-    NoAcceptedChoice { question_id: u32 },
+    NoAcceptedChoice {
+        question_id: u32,
+    },
     /// Accepted choices must be sorted, unique, and within `0..num_choices`.
-    MalformedAccepted { question_id: u32 },
+    MalformedAccepted {
+        question_id: u32,
+    },
 }
 
 /// Structural validation of an answer key, independent of any sheet.
@@ -45,28 +55,38 @@ pub enum KeyError {
 /// impossible, not merely unlikely.
 pub fn validate_key(key: &AnswerKey) -> Result<(), KeyError> {
     if key.entries.len() > MAX_QUESTIONS {
-        return Err(KeyError::TooManyQuestions { count: key.entries.len() });
+        return Err(KeyError::TooManyQuestions {
+            count: key.entries.len(),
+        });
     }
     if key.num_choices < 2 {
-        return Err(KeyError::TooFewChoices { num_choices: key.num_choices });
+        return Err(KeyError::TooFewChoices {
+            num_choices: key.num_choices,
+        });
     }
     for (i, entry) in key.entries.iter().enumerate() {
         // O(n^2) id-uniqueness scan: n <= 65_536 and this runs inside a zkVM
         // guest where a HashSet is unavailable and sorting a copy costs more
         // cycles than it saves at real exam sizes (n ~ 100).
-        if key.entries[..i].iter().any(|e| e.question_id == entry.question_id) {
-            return Err(KeyError::DuplicateQuestionId { question_id: entry.question_id });
+        if key.entries[..i]
+            .iter()
+            .any(|e| e.question_id == entry.question_id)
+        {
+            return Err(KeyError::DuplicateQuestionId {
+                question_id: entry.question_id,
+            });
         }
         if !entry.cancelled && entry.accepted.is_empty() {
-            return Err(KeyError::NoAcceptedChoice { question_id: entry.question_id });
+            return Err(KeyError::NoAcceptedChoice {
+                question_id: entry.question_id,
+            });
         }
-        let sorted_unique_in_range = entry
-            .accepted
-            .windows(2)
-            .all(|w| w[0] < w[1])
-            && entry.accepted.last().map_or(true, |&c| c < key.num_choices);
+        let sorted_unique_in_range = entry.accepted.windows(2).all(|w| w[0] < w[1])
+            && entry.accepted.last().is_none_or(|&c| c < key.num_choices);
         if !sorted_unique_in_range {
-            return Err(KeyError::MalformedAccepted { question_id: entry.question_id });
+            return Err(KeyError::MalformedAccepted {
+                question_id: entry.question_id,
+            });
         }
     }
     Ok(())
@@ -80,7 +100,10 @@ pub fn validate_key(key: &AnswerKey) -> Result<(), KeyError> {
 pub fn score(key: &AnswerKey, salt: &Salt, sheet: &AnswerSheet) -> Result<ScoreReport, ScoreError> {
     validate_key(key).map_err(ScoreError::InvalidKey)?;
     if key.exam_id != sheet.exam_id {
-        return Err(ScoreError::ExamIdMismatch { key: key.exam_id, sheet: sheet.exam_id });
+        return Err(ScoreError::ExamIdMismatch {
+            key: key.exam_id,
+            sheet: sheet.exam_id,
+        });
     }
     if key.entries.len() != sheet.answers.len() {
         return Err(ScoreError::LengthMismatch {
@@ -126,14 +149,12 @@ pub fn score(key: &AnswerKey, salt: &Salt, sheet: &AnswerSheet) -> Result<ScoreR
         }
     }
 
-    // All-cancelled (or zero-weight) exam under Redistribute: 0/0. Real-world
-    // convention is full credit — the institution, not the student, destroyed
-    // the denominator.
-    let score_bp = if total_weight == 0 {
-        FULL_SCORE_BP
-    } else {
-        ((credited_weight * FULL_SCORE_BP as u64) / total_weight) as u32
-    };
+    // Division by zero here means an all-cancelled (or zero-weight) exam:
+    // 0/0. Real-world convention is full credit — the institution, not the
+    // student, destroyed the denominator.
+    let score_bp = (credited_weight * FULL_SCORE_BP as u64)
+        .checked_div(total_weight)
+        .map_or(FULL_SCORE_BP, |v| v as u32);
 
     Ok(ScoreReport {
         exam_id: key.exam_id,
