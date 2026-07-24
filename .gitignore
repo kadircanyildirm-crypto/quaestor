@@ -1,4 +1,8 @@
 /target
+zk/*/target
 **/*.rs.bk
 Cargo.lock.orig
 .DS_Store
+
+# reproducible artifacts
+/demo-proof.bin
