@@ -28,5 +28,8 @@ pub mod model;
 pub mod score;
 
 pub use commit::{commit_answer_key, hash_answer_sheet, Salt};
+pub use encode::{
+    decode_answer_key, decode_answer_sheet, encode_answer_key, encode_answer_sheet, DecodeError,
+};
 pub use model::{AnswerKey, AnswerSheet, CancelPolicy, Choice, KeyEntry, ScoreReport};
 pub use score::{score, ScoreError};

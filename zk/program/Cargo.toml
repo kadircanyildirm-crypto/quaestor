@@ -1,0 +1,11 @@
+[package]
+name = "ispat-program"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Pin exactly on first Linux build; "6" tracks the SP1 major current mid-2026.
+sp1-zkvm = "6"
+grading-core = { path = "../../crates/grading-core", default-features = false }
+
+[workspace]

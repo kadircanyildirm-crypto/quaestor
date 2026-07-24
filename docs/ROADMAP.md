@@ -13,9 +13,13 @@ academic attention and collaboration requests.
 
 ## Weeks 3–4 — First proof
 - [ ] WSL2 Ubuntu + SP1 toolchain (proving is Linux-side; core dev stays on Windows)
-- [ ] `program/` SP1 guest wrapping `grading_core::score`
-- [ ] `prover/` host CLI: `ispat prove --key key.json --salt ... --sheet sheet.json`
-- [ ] `ispat verify` CLI: verifies `(C, H, R, π)` — the demo moment
+- [x] Canonical decode in `grading-core` (guest needs it; keeps serde out of
+      the trusted base) + roundtrip/adversarial properties
+- [x] `zk/program` SP1 guest wrapping `grading_core::score` *(written; first
+      build pending toolchain)*
+- [x] `zk/script` host CLI: execute / prove / verify + demo exam data
+      *(written; first build pending toolchain)*
+- [ ] First end-to-end proof of `examples/demo-exam` — the demo moment
 - [ ] Record honest numbers: proof time, proof size, verify time (CPU + GPU)
 
 ## Weeks 5–6 — Batching & benchmarks

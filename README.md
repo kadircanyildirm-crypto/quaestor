@@ -42,10 +42,14 @@ what this does *not* prove (trust model), and
 ## Status
 
 - ✅ `grading-core`: deterministic, `no_std`, zkVM-agnostic grading engine —
-  exam model, canonical encodings, salted key commitments, scoring with
+  exam model, canonical encode/decode, salted key commitments, scoring with
   weighted questions, post-appeal multiple-accepted answers, and cancelled
-  questions under two policies. 15 tests passing.
-- 🔜 SP1 guest + host prover: first end-to-end proof of a graded exam.
+  questions under two policies. 32 tests (incl. 17 proptest properties:
+  commitment binding, roundtrips, adversarial decoding).
+- ✅ `zk/`: SP1 guest program + `ispat-cli` host (execute/prove/verify),
+  92-byte fixed public-values layout — awaiting first build on the SP1
+  toolchain (Linux/WSL2).
+- 🔜 First end-to-end proof of the demo exam; honest benchmark numbers.
 - 🔜 Batch proving (one proof per exam sitting, not per sheet), browser-side
   verifier, pilot with a real course.
 

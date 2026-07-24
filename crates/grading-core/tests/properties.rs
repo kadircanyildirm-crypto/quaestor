@@ -5,7 +5,8 @@
 //! meaningful.
 
 use grading_core::{
-    commit_answer_key, hash_answer_sheet, score, AnswerKey, AnswerSheet, CancelPolicy, KeyEntry,
+    commit_answer_key, decode_answer_key, decode_answer_sheet, encode_answer_key,
+    encode_answer_sheet, hash_answer_sheet, score, AnswerKey, AnswerSheet, CancelPolicy, KeyEntry,
 };
 use proptest::collection::vec as pvec;
 use proptest::prelude::*;
@@ -181,6 +182,46 @@ proptest! {
             Some(_) => None,
         };
         prop_assert_ne!(hash_answer_sheet(&case.sheet), hash_answer_sheet(&tampered));
+    }
+
+    #[test]
+    fn key_encoding_roundtrips(case in arb_case()) {
+        let bytes = encode_answer_key(&case.key);
+        prop_assert_eq!(decode_answer_key(&bytes).unwrap(), case.key);
+    }
+
+    #[test]
+    fn sheet_encoding_roundtrips(case in arb_case()) {
+        let bytes = encode_answer_sheet(&case.sheet);
+        prop_assert_eq!(decode_answer_sheet(&bytes).unwrap(), case.sheet);
+    }
+
+    #[test]
+    fn encodings_are_domain_separated(case in arb_case()) {
+        // Key bytes must never decode as a sheet or vice versa.
+        prop_assert!(decode_answer_sheet(&encode_answer_key(&case.key)).is_err());
+        prop_assert!(decode_answer_key(&encode_answer_sheet(&case.sheet)).is_err());
+    }
+
+    #[test]
+    fn decoder_never_panics_on_arbitrary_bytes(bytes in pvec(any::<u8>(), 0..256)) {
+        // Result content is irrelevant; the property is "no panic, no hang".
+        let _ = decode_answer_key(&bytes);
+        let _ = decode_answer_sheet(&bytes);
+    }
+
+    #[test]
+    fn truncated_key_encodings_are_rejected(case in arb_case(), cut in any::<prop::sample::Index>()) {
+        let bytes = encode_answer_key(&case.key);
+        let cut_at = cut.index(bytes.len()); // 0..len, strictly shorter
+        prop_assert!(decode_answer_key(&bytes[..cut_at]).is_err());
+    }
+
+    #[test]
+    fn extended_key_encodings_are_rejected(case in arb_case(), extra in 1u8..=255) {
+        let mut bytes = encode_answer_key(&case.key);
+        bytes.push(extra);
+        prop_assert!(decode_answer_key(&bytes).is_err());
     }
 
     #[test]
