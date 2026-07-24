@@ -1,0 +1,14 @@
+[package]
+name = "grading-core"
+description = "Deterministic, zkVM-agnostic grading engine: exam model, answer-key commitments, scoring"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sha2 = { workspace = true }
+
+[features]
+default = ["std"]
+std = []
