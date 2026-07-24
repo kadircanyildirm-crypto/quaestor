@@ -34,6 +34,19 @@ if ! command -v cargo-prove >/dev/null 2>&1; then
 fi
 cargo-prove prove --version
 
+# The container is ephemeral but only ~/.sp1 persists (named volume); the
+# rustup registration of the succinct toolchain lives in RUSTUP_HOME and must
+# be re-linked on every run.
+if ! rustup toolchain list | grep -q succinct; then
+  echo "== linking succinct toolchain into rustup =="
+  TOOLCHAIN_DIR=$(ls -d "$HOME"/.sp1/toolchains/* 2>/dev/null | head -n 1 || true)
+  if [ -n "$TOOLCHAIN_DIR" ]; then
+    rustup toolchain link succinct "$TOOLCHAIN_DIR"
+  else
+    cargo prove install-toolchain
+  fi
+fi
+
 echo "== building host CLI (build.rs also compiles the guest ELF) =="
 cd zk/script
 cargo build --release
