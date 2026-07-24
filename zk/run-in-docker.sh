@@ -15,10 +15,12 @@ set -euo pipefail
 export PATH="$HOME/.sp1/bin:$PATH"
 export DEBIAN_FRONTEND=noninteractive
 
+echo "== installing build dependencies =="
+apt-get update -qq
+apt-get install -y -qq curl clang pkg-config libssl-dev protobuf-compiler >/dev/null
+
 if ! command -v cargo-prove >/dev/null 2>&1; then
   echo "== installing SP1 toolchain =="
-  apt-get update -qq
-  apt-get install -y -qq curl clang pkg-config libssl-dev >/dev/null
   # sp1up.succinct.xyz is unreachable from some networks (this one included);
   # zk/.cache/sp1up is the same script fetched from the GitHub source of truth.
   # Everything sp1up itself downloads comes from github.com, which is fine.
