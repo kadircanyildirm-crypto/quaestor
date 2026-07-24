@@ -22,12 +22,13 @@ if ! command -v cargo-prove >/dev/null 2>&1; then
   # sp1up.succinct.xyz is unreachable from some networks (this one included);
   # zk/.cache/sp1up is the same script fetched from the GitHub source of truth.
   # Everything sp1up itself downloads comes from github.com, which is fine.
+  # The GitHub sp1up script is the complete installer: it installs
+  # cargo-prove and links the succinct rust toolchain in one pass.
   if [ -f zk/.cache/sp1up ]; then
     bash zk/.cache/sp1up
   else
     curl -sSfL --retry 5 --retry-all-errors https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up | bash
   fi
-  "$HOME/.sp1/bin/sp1up"
 fi
 cargo-prove prove --version
 
