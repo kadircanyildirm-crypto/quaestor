@@ -6,3 +6,6 @@ Cargo.lock.orig
 
 # reproducible artifacts
 /demo-proof.bin
+
+# locally cached third-party installers (fetched from GitHub, see zk/run-in-docker.sh)
+zk/.cache/
