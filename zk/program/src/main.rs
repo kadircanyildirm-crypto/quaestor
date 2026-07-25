@@ -1,7 +1,7 @@
 //! SP1 guest: the exact grading computation whose execution is proven.
 //!
 //! Trusted computing base by design: this file + `grading-core` and nothing
-//! else. No serde, no JSON — inputs arrive as ispat's canonical bytes and are
+//! else. No serde, no JSON — inputs arrive as quaestor's canonical bytes and are
 //! decoded by the same ~100 lines the commitments are defined over.
 //!
 //! Any panic here (malformed input, failed validation) aborts proving — a

@@ -43,12 +43,12 @@ sequenceDiagram
 
 Honesty about limits is what makes this credible:
 
-- **Chain of custody.** ispat proves "these recorded answers score X", not
+- **Chain of custody.** quaestor proves "these recorded answers score X", not
   "these recorded answers are what the student bubbled on paper." OMR
   digitization sits outside the proof boundary (a future component can sign
   scans and hash-link them to `H`).
 - **Key quality.** The proof says the committed key was applied, not that the
-  committed key is academically correct. Appeals still exist; ispat makes
+  committed key is academically correct. Appeals still exist; quaestor makes
   their effects visible instead of silent.
 - **Salt secrecy.** If the institution leaks `s` and `K` early, hiding is
   gone (binding survives). Operational, not cryptographic, duty.
@@ -57,7 +57,7 @@ Honesty about limits is what makes this credible:
 
 `C = SHA-256(domain ‖ version ‖ canonical(K) ‖ s)` with:
 
-- **Domain separation** (`ispat/answer-key`, `ispat/answer-sheet`) so hashes
+- **Domain separation** (`quaestor/answer-key`, `quaestor/answer-sheet`) so hashes
   from one context can never be replayed in another.
 - **Canonical encoding** (`encode.rs`): little-endian fixed-width integers,
   `u32` length prefixes, no serde — injectivity and eternal stability are

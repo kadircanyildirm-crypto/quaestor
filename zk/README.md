@@ -5,9 +5,9 @@ toolchain, which is Linux-only; the root stays buildable everywhere):
 
 - **`program/`** — the guest. ~40 lines wrapping `grading_core::score`. This
   plus `grading-core` is the entire trusted computing base: no serde, no JSON;
-  inputs are ispat's canonical bytes, decoded by the same code the commitments
+  inputs are quaestor's canonical bytes, decoded by the same code the commitments
   are defined over.
-- **`script/`** — the host CLI (`ispat-cli`): loads human-friendly JSON,
+- **`script/`** — the host CLI (`quaestor-cli`): loads human-friendly JSON,
   produces canonical bytes, runs `execute` (fast, no proof), `prove`
   (proof + self-verify + save), and `verify`.
 

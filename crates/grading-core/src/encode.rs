@@ -16,8 +16,8 @@ use crate::model::{AnswerKey, AnswerSheet, CancelPolicy, KeyEntry, BLANK_MARKER}
 /// commitment, so: effectively never within a deployment).
 pub const ENCODING_VERSION: u8 = 0;
 
-pub(crate) const KEY_DOMAIN: &[u8] = b"ispat/answer-key";
-pub(crate) const SHEET_DOMAIN: &[u8] = b"ispat/answer-sheet";
+pub(crate) const KEY_DOMAIN: &[u8] = b"quaestor/answer-key";
+pub(crate) const SHEET_DOMAIN: &[u8] = b"quaestor/answer-sheet";
 
 pub(crate) struct Encoder {
     buf: Vec<u8>,

@@ -1,11 +1,11 @@
 [package]
-name = "ispat-cli"
+name = "quaestor-cli"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 # Pin exactly on first Linux build; "6" tracks the SP1 major current mid-2026.
-sp1-sdk = "6"
+sp1-sdk = { version = "6", features = ["blocking"] }
 grading-core = { path = "../../crates/grading-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

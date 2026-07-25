@@ -4,8 +4,8 @@
 #
 #   docker run --rm \
 #     -v "$PWD":/work \
-#     -v ispat-cargo-registry:/usr/local/cargo/registry \
-#     -v ispat-sp1:/root/.sp1 \
+#     -v quaestor-cargo-registry:/usr/local/cargo/registry \
+#     -v quaestor-sp1:/root/.sp1 \
 #     -w /work rust:1 bash zk/run-in-docker.sh
 #
 # The two named volumes cache the cargo registry and the SP1 toolchain so only
@@ -64,4 +64,4 @@ time cargo run --release -- prove --key "$KEY" --salt "$SALT" --sheet "$SHEET" -
 echo "== verify =="
 cargo run --release -- verify --proof ../../demo-proof.bin
 
-echo "== done: first end-to-end ispat proof =="
+echo "== done: first end-to-end quaestor proof =="

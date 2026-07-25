@@ -1,11 +1,11 @@
-//! ispat host CLI: produce and verify grading proofs.
+//! quaestor host CLI: produce and verify grading proofs.
 //!
 //! Requires the SP1 toolchain (Linux / WSL2) — see zk/README.md.
 //!
 //! ```text
-//! ispat-cli execute --key key.json --salt <64-hex> --sheet sheet.json
-//! ispat-cli prove   --key key.json --salt <64-hex> --sheet sheet.json --out proof.bin
-//! ispat-cli verify  --proof proof.bin
+//! quaestor-cli execute --key key.json --salt <64-hex> --sheet sheet.json
+//! quaestor-cli prove   --key key.json --salt <64-hex> --sheet sheet.json --out proof.bin
+//! quaestor-cli verify  --proof proof.bin
 //! ```
 //!
 //! JSON here is a host-side convenience only; what enters the guest (and what
@@ -15,8 +15,7 @@ use std::fs;
 use std::process::ExitCode;
 
 use serde::Deserialize;
-use sp1_sdk::blocking::prover::{ProveRequest, Prover};
-use sp1_sdk::blocking::ProverClient;
+use sp1_sdk::blocking::{ProveRequest, Prover, ProverClient};
 use sp1_sdk::{include_elf, Elf, ProvingKey, SP1ProofWithPublicValues, SP1Stdin};
 
 use grading_core::{
@@ -27,7 +26,7 @@ use grading_core::{
 /// `include_elf!` yields `Elf::Static` over embedded bytes; constructing it
 /// per call sidesteps any Clone/Copy assumptions about the `Elf` type.
 fn elf() -> Elf {
-    include_elf!("ispat-program")
+    include_elf!("quaestor-program")
 }
 
 #[derive(Deserialize)]
@@ -62,7 +61,10 @@ fn main() -> ExitCode {
         Some("execute") => run(&args, Mode::Execute),
         Some("prove") => run(&args, Mode::Prove),
         Some("verify") => verify(&args),
-        _ => Err("usage: ispat-cli <execute|prove|verify> [--key --salt --sheet --out --proof]".into()),
+        _ => Err(
+            "usage: quaestor-cli <execute|prove|verify> [--key --salt --sheet --out --proof]"
+                .into(),
+        ),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

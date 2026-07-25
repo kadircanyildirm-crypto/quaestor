@@ -1,12 +1,14 @@
-# ispat
+# quaestor
 
 **Verifiable grading: cryptographic proof that your grade was computed correctly.**
 
-*İspat* (Turkish: "proof") is a grading engine whose execution is proven inside a
-zkVM. An institution publishes a commitment to the answer key *before* an exam;
-after grading, it publishes each student's score together with a zero-knowledge
-proof that the score was computed from (a) the committed key and (b) the
-student's actual answers — **without revealing the answer key**.
+*Quaestor* (Latin: the Roman magistrate who audited the public accounts; from
+*quaestio*, "an inquiry" — literally, "a question") is a grading engine whose
+execution is proven inside a zkVM. An institution publishes a commitment to the
+answer key *before* an exam; after grading, it publishes each student's score
+together with a zero-knowledge proof that the score was computed from (a) the
+committed key and (b) the student's actual answers — **without revealing the
+answer key**.
 
 ## The problem
 
@@ -21,7 +23,7 @@ check that:
 
 Grade-tampering and answer-key scandals are recurring, real events in national
 exam systems. Policy work on algorithmic accountability (OECD, Ada Lovelace
-Institute) asks for transparency registers and audits; ispat gives the stronger
+Institute) asks for transparency registers and audits; quaestor gives the stronger
 answer: **a proof**. The idea traces to Kroll et al.'s *Accountable Algorithms*
 (U. Penn. L. Rev. 2017); zkVMs finally make it practical to build.
 
@@ -46,7 +48,7 @@ what this does *not* prove (trust model), and
   weighted questions, post-appeal multiple-accepted answers, and cancelled
   questions under two policies. 32 tests (incl. 17 proptest properties:
   commitment binding, roundtrips, adversarial decoding).
-- ✅ `zk/`: SP1 guest program + `ispat-cli` host (execute/prove/verify),
+- ✅ `zk/`: SP1 guest program + `quaestor-cli` host (execute/prove/verify),
   92-byte fixed public-values layout — awaiting first build on the SP1
   toolchain (Linux/WSL2).
 - 🔜 First end-to-end proof of the demo exam; honest benchmark numbers.
