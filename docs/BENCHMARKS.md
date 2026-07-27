@@ -29,7 +29,7 @@ while SP1 ships hashing precompiles (see "What the shape reveals" below).
 | | |
 |---|---|
 | CPU | 12th Gen Intel Core i5-12450H (12 logical cores) |
-| RAM | 15.7 GB, of which Docker/WSL2 received 8.19 GB |
+| RAM | 15.7 GB; Docker/WSL2 was capped at 8.19 GB, and unrelated containers held ~2.5 GB of that for part of the session |
 | OS | Windows 11 Pro, Docker Desktop → WSL2, `rust:1` container |
 | SP1 | 6.3.1, guest toolchain `rustc 1.94.0-dev (succinct)` |
 | Date | 2026-07-27 |

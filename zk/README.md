@@ -136,6 +136,12 @@ was killed by the OOM killer on a 16 GB laptop giving Docker 8 GB, and stayed
 killed after cutting every worker count to 1 and setting `SHARD_SIZE=2^19` and
 `MEMORY_LIMIT=6GB`. Tuning does not get you under the floor.
 
+Check what else is running before blaming the tuning: on the development
+machine an unrelated `kind` cluster was quietly holding 2.5 GB of Docker's
+8 GB. It did not change the outcome — the first OOM happened before that
+cluster was up — but it is worth a `docker stats` before concluding anything
+about memory.
+
 **Plan for 32 GB and 8+ cores**, or a CUDA box (`SP1_PROVER=cuda`) for anything
 at sitting scale. Everything else in this repo — the whole of `grading-core`,
 both guests' compilation, `execute`, and every claim check — runs comfortably
