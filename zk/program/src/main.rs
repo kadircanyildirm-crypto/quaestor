@@ -11,7 +11,7 @@
 
 sp1_zkvm::entrypoint!(main);
 
-use grading_core::{decode_answer_key, decode_answer_sheet, score};
+use grading_core::{decode_answer_key, decode_answer_sheet, encode_public_values, score};
 
 pub fn main() {
     // Private witness: canonical key bytes + salt.
@@ -29,15 +29,10 @@ pub fn main() {
 
     let report = score(&key, &salt, &sheet).expect("scoring rejected inputs");
 
-    // Public values — fixed 92-byte layout, documented in zk/README.md.
-    // The verifier checks key_commitment against the pre-exam publication and
-    // sheet_hash against the student's own copy of their answers.
-    sp1_zkvm::io::commit_slice(&report.key_commitment);
-    sp1_zkvm::io::commit_slice(&report.sheet_hash);
-    sp1_zkvm::io::commit_slice(&report.exam_id.to_le_bytes());
-    sp1_zkvm::io::commit_slice(&report.score_bp.to_le_bytes());
-    sp1_zkvm::io::commit_slice(&report.correct.to_le_bytes());
-    sp1_zkvm::io::commit_slice(&report.wrong.to_le_bytes());
-    sp1_zkvm::io::commit_slice(&report.blank.to_le_bytes());
-    sp1_zkvm::io::commit_slice(&report.cancelled.to_le_bytes());
+    // Public values — fixed 92-byte layout owned by `grading_core`, so the
+    // bytes written here and the bytes every verifier parses are produced by
+    // one function and cannot drift apart. The verifier checks key_commitment
+    // against the pre-exam publication and sheet_hash against the student's
+    // own copy of their answers.
+    sp1_zkvm::io::commit_slice(&encode_public_values(&report));
 }

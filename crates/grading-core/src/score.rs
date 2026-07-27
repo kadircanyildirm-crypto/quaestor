@@ -14,7 +14,9 @@ use crate::model::{AnswerKey, AnswerSheet, CancelPolicy, ScoreReport};
 /// reasoning trivial.
 pub const MAX_QUESTIONS: usize = 65_536;
 
-const FULL_SCORE_BP: u32 = 10_000;
+/// A perfect score, in basis points. Also the verifier-side upper bound: a
+/// report claiming more than this cannot have come from this program.
+pub const FULL_SCORE_BP: u32 = 10_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ScoreError {
@@ -99,6 +101,28 @@ pub fn validate_key(key: &AnswerKey) -> Result<(), KeyError> {
 /// `(key, salt)`, public inputs derived here.
 pub fn score(key: &AnswerKey, salt: &Salt, sheet: &AnswerSheet) -> Result<ScoreReport, ScoreError> {
     validate_key(key).map_err(ScoreError::InvalidKey)?;
+    score_validated(key, &commit_answer_key(key, salt), sheet)
+}
+
+/// The per-sheet half of [`score`], split out so a whole sitting pays for key
+/// validation and the key commitment once instead of once per candidate.
+///
+/// The two hoisted steps are the expensive ones and neither depends on the
+/// sheet: [`validate_key`] is a quadratic id scan, and `commit_answer_key`
+/// hashes the entire encoded key. Inside a zkVM that is the difference between
+/// a batch costing `O(sheets * key)` and `O(sheets + key)` — which is the whole
+/// argument for batching in the first place.
+///
+/// Not public: the caller carries the obligation that `key` passed
+/// [`validate_key`] and that `key_commitment` is `commit_answer_key(key, salt)`
+/// for the salt the report will be published under. `grade_batch` and [`score`]
+/// are the only callers, and `batch_reports_match_scoring_each_sheet_alone`
+/// pins the two against each other.
+pub(crate) fn score_validated(
+    key: &AnswerKey,
+    key_commitment: &[u8; 32],
+    sheet: &AnswerSheet,
+) -> Result<ScoreReport, ScoreError> {
     if key.exam_id != sheet.exam_id {
         return Err(ScoreError::ExamIdMismatch {
             key: key.exam_id,
@@ -158,7 +182,7 @@ pub fn score(key: &AnswerKey, salt: &Salt, sheet: &AnswerSheet) -> Result<ScoreR
 
     Ok(ScoreReport {
         exam_id: key.exam_id,
-        key_commitment: commit_answer_key(key, salt),
+        key_commitment: *key_commitment,
         sheet_hash: hash_answer_sheet(sheet),
         score_bp,
         correct,

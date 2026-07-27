@@ -22,14 +22,25 @@
 
 extern crate alloc;
 
+pub mod batch;
 pub mod commit;
 pub mod encode;
 pub mod model;
+pub mod public_values;
 pub mod score;
 
+pub use batch::{
+    batch_root, check_batch_inclusion, grade_batch, leaf_hash, merkle_path, merkle_paths,
+    verify_merkle_path, BatchError, BatchGradeError, BatchOutcome, MerklePath, MAX_BATCH,
+};
 pub use commit::{commit_answer_key, hash_answer_sheet, Salt};
 pub use encode::{
     decode_answer_key, decode_answer_sheet, encode_answer_key, encode_answer_sheet, DecodeError,
 };
 pub use model::{AnswerKey, AnswerSheet, CancelPolicy, Choice, KeyEntry, ScoreReport};
-pub use score::{score, ScoreError};
+pub use public_values::{
+    check_batch_public_values, check_public_values, decode_batch_public_values,
+    decode_public_values, encode_batch_public_values, encode_public_values, BatchPublicValues,
+    PublicValuesError, VerifyError, BATCH_PUBLIC_VALUES_LEN, PUBLIC_VALUES_LEN,
+};
+pub use score::{score, validate_key, KeyError, ScoreError, FULL_SCORE_BP};

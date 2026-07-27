@@ -4,9 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly, so the proving layer cannot rot unnoticed between pushes.
+    - cron: "0 4 * * 1"
 
 env:
   CARGO_TERM_COLOR: always
+  DEMO_SALT: "0101010101010101010101010101010101010101010101010101010101010101"
 
 jobs:
   check:
@@ -26,3 +31,163 @@ jobs:
         run: cargo test --workspace
       - name: no_std build (zkVM guest compatibility)
         run: cargo build -p grading-core --no-default-features
+
+  zk:
+    name: sp1 guest + end-to-end proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The SP1 toolchain is a multi-GB install and proving is minutes of CPU, so
+    # this is not a gate on every PR. It still has to run somewhere: nothing
+    # else in the repo compiles the guest, and an uncompiled guest means the
+    # project's central claim is untested.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq clang protobuf-compiler
+
+      - name: Cache SP1 toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.sp1
+          key: sp1-v6-${{ runner.os }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: zk/script
+
+      - name: Install SP1
+        run: |
+          if [ ! -x "$HOME/.sp1/bin/cargo-prove" ]; then
+            curl -sSfL --retry 5 --retry-all-errors \
+              https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up | bash
+          fi
+          echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
+
+      - name: Link succinct toolchain
+        # ~/.sp1 restores from cache, but its rustup registration does not.
+        run: |
+          rustup toolchain list | grep -q succinct || \
+            rustup toolchain link succinct "$(ls -d "$HOME"/.sp1/toolchains/* | head -n 1)"
+          cargo prove --version
+
+      - name: Execute the demo exam in the zkVM
+        working-directory: zk/script
+        run: |
+          cargo run --release -- execute \
+            --key ../../examples/demo-exam/key.json \
+            --salt "$DEMO_SALT" \
+            --sheet ../../examples/demo-exam/sheet.json | tee execute.log
+
+      - name: Prove, verify, and refuse two forgeries
+        working-directory: zk/script
+        run: |
+          set -euo pipefail
+          COMMITMENT=$(awk '/^key commitment/ {print $NF; exit}' execute.log)
+
+          cargo run --release -- prove \
+            --key ../../examples/demo-exam/key.json \
+            --salt "$DEMO_SALT" \
+            --sheet ../../examples/demo-exam/sheet.json \
+            --out proof.bin
+
+          cargo run --release -- verify \
+            --proof proof.bin --commitment "$COMMITMENT" \
+            --sheet ../../examples/demo-exam/sheet.json
+
+          # The negative cases are the ones with teeth: both proofs below are
+          # genuine and verify cryptographically, they just prove the wrong
+          # statement. A verifier that accepts them is worthless.
+          if cargo run --release -- verify \
+               --proof proof.bin --commitment "$COMMITMENT" \
+               --sheet ../../examples/demo-exam/other-sheet.json; then
+            echo "::error::verifier accepted a proof about another candidate's sheet"
+            exit 1
+          fi
+
+          FORGED=$(printf '%s' "$COMMITMENT" | tr '0-9a-f' '1-9a-f0')
+          if cargo run --release -- verify \
+               --proof proof.bin --commitment "$FORGED" \
+               --sheet ../../examples/demo-exam/sheet.json; then
+            echo "::error::verifier accepted a proof under an uncommitted key"
+            exit 1
+          fi
+
+      - name: Prove the whole sitting once, and refuse three more forgeries
+        working-directory: zk/script
+        run: |
+          set -euo pipefail
+          COMMITMENT=$(awk '/^key commitment/ {print $NF; exit}' execute.log)
+          # Three candidates — an odd sitting, so the tree's promotion path is
+          # exercised by the end-to-end run and not only by unit tests.
+          SITTING="--sheet ../../examples/demo-exam/sheet.json --sheet ../../examples/demo-exam/other-sheet.json --sheet ../../examples/demo-exam/third-sheet.json"
+
+          cargo run --release -- execute-batch \
+            --key ../../examples/demo-exam/key.json --salt "$DEMO_SALT" $SITTING
+
+          cargo run --release -- prove-batch \
+            --key ../../examples/demo-exam/key.json --salt "$DEMO_SALT" $SITTING \
+            --out batch.bin --manifest sitting.json
+
+          # A candidate checks their own row; an auditor checks that the whole
+          # published list is the sitting that was proven.
+          cargo run --release -- verify-batch --proof batch.bin --manifest sitting.json \
+            --commitment "$COMMITMENT" --sheet ../../examples/demo-exam/sheet.json
+          cargo run --release -- verify-batch --proof batch.bin --manifest sitting.json \
+            --commitment "$COMMITMENT"
+
+          if cargo run --release -- verify-batch --proof batch.bin --manifest sitting.json \
+               --commitment "$COMMITMENT" --sheet ../../examples/demo-exam/absent-sheet.json; then
+            echo "::error::verifier placed a candidate in a sitting they never sat"
+            exit 1
+          fi
+
+          # The failure mode batching introduces: the proof covers a root, not a
+          # results page, so the sitting can be proven honestly and one row
+          # edited afterwards. Guard both ends of the edit — a tamper that
+          # silently does not apply makes the check pass for the wrong reason.
+          if ! grep -q '"score_bp": 6000' sitting.json; then
+            echo "::error::expected a 60.00% row to tamper with"; exit 1
+          fi
+          sed 's/"score_bp": 6000/"score_bp": 10000/' sitting.json > tampered.json
+          if grep -q '"score_bp": 6000' tampered.json; then
+            echo "::error::the tamper edit did not apply"; exit 1
+          fi
+
+          if cargo run --release -- verify-batch --proof batch.bin --manifest tampered.json \
+               --commitment "$COMMITMENT" --sheet ../../examples/demo-exam/other-sheet.json; then
+            echo "::error::verifier accepted a score that was never proven"
+            exit 1
+          fi
+          if cargo run --release -- verify-batch --proof batch.bin --manifest tampered.json \
+               --commitment "$COMMITMENT"; then
+            echo "::error::audit accepted a results list that is not the proven sitting"
+            exit 1
+          fi
+
+          # Every score below is genuinely proven; only the names on them are
+          # swapped. Inclusion is blind to that — the pseudonym is not in the
+          # leaf — so what catches it is the candidate's own sheet, whose hash
+          # commits to their pseudonym alongside their answers.
+          B=1122334455667788112233445566778811223344556677881122334455667788
+          C=c3d4e5f6a7b8091ac3d4e5f6a7b8091ac3d4e5f6a7b8091ac3d4e5f6a7b8091a
+          sed -e "s/$B/__SWAP__/" -e "s/$C/$B/" -e "s/__SWAP__/$C/" sitting.json > relabelled.json
+          if cmp -s sitting.json relabelled.json; then
+            echo "::error::the relabel edit did not apply"; exit 1
+          fi
+          if cargo run --release -- verify-batch --proof batch.bin --manifest relabelled.json \
+               --commitment "$COMMITMENT" --sheet ../../examples/demo-exam/other-sheet.json; then
+            echo "::error::verifier accepted a row published under someone else's pseudonym"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-proof
+          path: |
+            zk/script/proof.bin
+            zk/script/batch.bin
+            zk/script/sitting.json
+          if-no-files-found: error

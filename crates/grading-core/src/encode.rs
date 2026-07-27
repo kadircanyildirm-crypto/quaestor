@@ -78,6 +78,15 @@ pub fn encode_answer_key(key: &AnswerKey) -> Vec<u8> {
 
 /// Canonical bytes of an answer sheet — preimage of the sheet hash and the
 /// wire format between prover host and zkVM guest.
+///
+/// Injective over *gradeable* sheets, which is the domain that matters: blanks
+/// are written as `BLANK_MARKER` (`0xFF`), so a hypothetical `Some(0xFF)` shares
+/// its encoding with `None`. That choice is not gradeable under any exam —
+/// `num_choices` is a `u8`, so a valid choice is at most `0xFE` and
+/// [`crate::score`] rejects `0xFF` before a report (and therefore any hash
+/// binding) can exist. The layout is not widened to a per-answer tag because
+/// doing so would change every commitment ever published to close a case that
+/// cannot occur; `sheet_sentinel_collision_is_unreachable` pins it instead.
 pub fn encode_answer_sheet(sheet: &AnswerSheet) -> Vec<u8> {
     let mut e = Encoder::with_domain(SHEET_DOMAIN);
     e.u64(sheet.exam_id);

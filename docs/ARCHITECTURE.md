@@ -52,6 +52,16 @@ Honesty about limits is what makes this credible:
   their effects visible instead of silent.
 - **Salt secrecy.** If the institution leaks `s` and `K` early, hiding is
   gone (binding survives). Operational, not cryptographic, duty.
+- **Who a batched row belongs to, from the outside.** A batch leaf is the
+  report, and a report carries no pseudonym — so inclusion binds every
+  published *score* to the proven sitting and says nothing about the name
+  printed beside it. The pseudonym is bound, but through the sheet hash, whose
+  preimage holds it together with the answers. The consequence is asymmetric
+  and worth stating plainly: a candidate can always detect a relabelled row
+  (`verify-batch --sheet` checks it), while an auditor holding no answer sheets
+  structurally cannot, and quaestor says so rather than printing a pass that
+  reads broader than it is. Closing it for auditors too means putting the
+  pseudonym in the leaf — an ABI change, not a bug fix.
 
 ## Commitment scheme
 
@@ -77,13 +87,60 @@ proving runs on Linux/WSL2 or CI — the Windows dev loop never needs it),
 with the core kept strictly zkVM-agnostic so a RISC Zero or Jolt backend is a
 weekend, not a rewrite.
 
-## Scaling plan (design, not yet built)
+## Scaling: batching
 
-Per-sheet proofs are the v0 demo. A real exam sitting (30–500k sheets) uses
-**batching**: the guest grades all sheets in one execution, outputs a Merkle
-root of `(H, R)` leaves; each student gets the single proof plus their Merkle
-path. Proof cost amortizes to near-zero per student. AÖF-scale sittings shard
-into fixed-size batches with a top-level aggregation proof.
+Per-sheet proofs are the v0 demo, and per-sheet proofs are also why v0 is a
+demo: a sitting of 10^5–10^6 candidates cannot pay one proof each. A real
+sitting is proven **once**. The guest grades every sheet in one execution and
+commits a single Merkle root over the report leaves; each student receives that
+one proof plus a `log2(n)` inclusion path — about 20 hashes for a million
+candidates, which verifies in a browser tab. Proof cost per student amortizes
+toward zero.
+
+Status: built end to end. `grading_core::grade_batch` grades the sitting and
+builds the tree; `zk/program-batch` is the guest that runs it and commits the
+76-byte batch public values (key commitment, root, exam id, leaf count);
+`quaestor-cli prove-batch` produces the proof plus the published results list,
+and `verify-batch` is the student's and the auditor's side of it. The
+single-sheet guest stays as the minimal reference.
+
+The batch guest is a **separate program**, not a mode flag on the single-sheet
+one. Two programs mean two verifying keys, so a batch proof cannot be presented
+where a single-sheet proof is expected — a property enforced by the proof
+system rather than by a field somebody has to remember to check.
+
+Batching also moves work off the per-candidate path: key validation and the key
+commitment are computed once per sitting rather than once per sheet, so a batch
+costs `O(sheets + key)` instead of `O(sheets × key)`. The per-candidate report
+is byte-identical either way, which is a tested invariant — otherwise batching
+would quietly be a second grading system wearing the same name.
+
+Three failure modes are closed in the construction rather than documented away,
+because each would let a prover forge an inclusion claim — which, once grades
+are batched, *is* the grade:
+
+- Leaves and internal nodes are hashed under distinct tags, so no leaf preimage
+  can be reinterpreted as an internal node.
+- An odd node is promoted rather than paired with a copy of itself, and the root
+  binds the leaf count — without which an `n`-leaf tree and an `n+1`-leaf tree
+  ending in a duplicate can share a root (CVE-2012-2459's shape), letting a
+  prover place a candidate in a sitting they never sat.
+- A leaf is the *whole* report, sheet hash included, so two candidates with
+  equal scores are still distinct leaves. Without that, a student could open the
+  sitting with a same-scoring stranger's path and learn nothing about whether
+  their own answers were the ones graded.
+
+Batching introduces one failure mode that per-sheet proving does not have, and
+it is the one to keep in view: **the proof covers a root, not a results page.**
+An institution can prove the sitting honestly and then publish a different
+number next to a name; the proof still verifies, because it was never about
+that page. The inclusion path is what closes the gap, so `verify-batch` treats
+a missing path as a hard rejection, and its auditor mode additionally requires
+that the published list contains every position exactly once — otherwise a list
+could duplicate one candidate's row and silently drop another's.
+
+AÖF-scale sittings shard into fixed-size batches with a top-level aggregation
+proof.
 
 ## Extension track (research upside)
 
