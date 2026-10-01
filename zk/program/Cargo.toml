@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Pin exactly on first Linux build; "6" tracks the SP1 major current mid-2026.
-sp1-zkvm = "6"
+# Pinned exactly, not as a courtesy to reproducible builds but because the
+# guest ELF's image ID *is* part of the claim: it is what tells a verifier
+# which program produced a proof. A floating dependency would silently change
+# the image ID, and with it the identity of the code being attested.
+sp1-zkvm = "=6.3.1"
 grading-core = { path = "../../crates/grading-core", default-features = false }
 
 [workspace]

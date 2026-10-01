@@ -4,14 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Pin exactly on first Linux build; "6" tracks the SP1 major current mid-2026.
-sp1-sdk = { version = "6", features = ["blocking"] }
+# Pinned exactly. `sp1-build` compiles the guests, so it decides the image IDs;
+# `sp1-sdk` decides what a proof is. Neither may drift without a deliberate
+# version bump and fresh image IDs recorded in zk/README.md.
+sp1-sdk = { version = "=6.3.1", features = ["blocking"] }
 grading-core = { path = "../../crates/grading-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 hex = "0.4"
 
 [build-dependencies]
-sp1-build = "6"
+sp1-build = "=6.3.1"
 
 [workspace]

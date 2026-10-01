@@ -1673,18 +1673,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
-name = "quaestor-cli"
-version = "0.1.0"
-dependencies = [
- "grading-core",
- "hex",
- "serde",
- "serde_json",
- "sp1-build",
- "sp1-sdk",
-]
-
-[[package]]
 name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2688,6 +2676,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52c2c1bf36ddb1a1c396b3601a3cec27c2462e45f07c386894ec3ccf5332bd16"
 dependencies = [
  "prost",
+]
+
+[[package]]
+name = "quaestor-cli"
+version = "0.1.0"
+dependencies = [
+ "grading-core",
+ "hex",
+ "serde",
+ "serde_json",
+ "sp1-build",
+ "sp1-sdk",
 ]
 
 [[package]]

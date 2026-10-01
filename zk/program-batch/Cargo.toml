@@ -1,0 +1,12 @@
+[package]
+name = "quaestor-batch-program"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Pinned exactly: the guest ELF's image ID is part of the claim (see
+# ../program/Cargo.toml). Both guests must move deliberately, together.
+sp1-zkvm = "=6.3.1"
+grading-core = { path = "../../crates/grading-core", default-features = false }
+
+[workspace]
