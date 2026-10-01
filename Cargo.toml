@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/grading-core"]
 # zk crates build only with the SP1 toolchain (Linux/WSL2); keeping them out of
 # the root workspace keeps `cargo test` green on any machine.
-exclude = ["zk/program", "zk/script"]
+exclude = ["zk/program", "zk/script", "crates/grading-wasm"]
 
 [workspace.package]
 version = "0.1.0"
