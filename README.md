@@ -1,7 +1,7 @@
 # quaestor
 
 [![CI](https://github.com/kadircanyildirm-crypto/quaestor/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/kadircanyildirm-crypto/quaestor/actions/workflows/ci.yml)
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](#license)
 
 **Verifiable grading.** quaestor proves that an exam score was computed from
 the answer key the institution committed to before the exam, and from the
@@ -353,5 +353,18 @@ accounts. The word comes from *quaestio*, "an inquiry".
 
 ## License
 
-Dual-licensed under the [MIT License](LICENSE-MIT) or the
-[Apache License 2.0](LICENSE-APACHE), at your option.
+Copyright © 2026 Kadir Can Yildirim.
+
+quaestor is licensed under the
+[GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`). You may
+use, modify and redistribute it, including commercially, provided that any
+modified version you distribute, or run as a network service for others, is
+released under the same license with its complete source code.
+
+If those terms do not fit your use, for example a closed-source product or
+service, a commercial license is available from the author. Open an issue or
+contact [@kadircanyildirm-crypto](https://github.com/kadircanyildirm-crypto).
+
+Versions up to and including commit
+[`dd84bb4`](https://github.com/kadircanyildirm-crypto/quaestor/commit/dd84bb4)
+were released under MIT OR Apache-2.0 and remain available under those terms.
