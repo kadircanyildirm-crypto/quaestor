@@ -22,3 +22,6 @@ zk/.cache/
 
 # generated benchmark inputs — reproduced by bench/generate-sitting.py, never committed
 bench/out/
+explainer/dist/
+explainer/out/
+explainer/node_modules/

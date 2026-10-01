@@ -26,7 +26,8 @@ three forgeries being rejected. They are rendered from a WebAssembly build of
 `grading-core` ([`crates/grading-wasm`](crates/grading-wasm)) running on
 [`examples/demo-exam`](examples/demo-exam), so every hash, score, Merkle path
 and verdict on screen is real output of this code. The SP1 proof itself is
-illustrated, not generated.
+illustrated, not generated. The page and the scripts that record it are in
+[`explainer/`](explainer).
 
 Commitments are drawn as seals: the 16 rays and 16 dots encode the 32 bytes of
 the digest. Sheet hashes are drawn as the timing marks along a sheet's edge.
@@ -327,6 +328,7 @@ zk/program-batch/      SP1 guest for a whole sitting
 zk/script/             quaestor-cli: execute, prove and verify, per sheet and per sitting
 examples/demo-exam/    demo answer key and answer sheets
 bench/                 benchmark scripts and chart generator
+explainer/             walkthrough page and recording scripts behind the animations
 docs/                  architecture, benchmarks and roadmap
 ```
 

@@ -1,0 +1,985 @@
+<title>Quaestor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;500&family=Public+Sans:wght@400;600;700&family=Sofia+Sans+Extra+Condensed:wght@600;800&display=swap">
+<style>
+/* Layout: one 16:9 exam-form stage (printed dropout-blue ink, graphite pencil marks,
+   violet rubber-stamp seals) above a caption strip and the chapter controls. */
+:root {
+  --stock: #F6F8F3;
+  --ground: #E7EBE4;
+  --board: #ECEFE8;
+  --dropout: #2A74B3;
+  --graphite: #262A30;
+  --stamp: #6B3C9F;
+  --pass: #1D7C4B;
+  --fail: #BE352E;
+  --muted: #65707D;
+  --rule: color-mix(in srgb, var(--dropout) 26%, var(--stock));
+  --vm: #20242B;
+  --vm-ink: #E9EEF4;
+  --display: "Sofia Sans Extra Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Martian Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --stock: #171B21; --ground: #0F1216; --board: #1C2129;
+    --dropout: #6FAEE6; --graphite: #E3E7EC; --stamp: #B597E8;
+    --pass: #49BE86; --fail: #F06A5F; --muted: #8E98A5;
+    --vm: #2A3039; --vm-ink: #E9EEF4;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --stock: #171B21; --ground: #0F1216; --board: #1C2129;
+  --dropout: #6FAEE6; --graphite: #E3E7EC; --stamp: #B597E8;
+  --pass: #49BE86; --fail: #F06A5F; --muted: #8E98A5;
+  --vm: #2A3039; --vm-ink: #E9EEF4;
+}
+
+* { box-sizing: border-box; }
+html, body { background: var(--ground); color: var(--graphite); }
+body { font-family: var(--body); font-size: 16px; line-height: 1.5; padding-inline: clamp(16px, 3vw, 40px); padding-block: 28px 48px; }
+.wrap { max-width: 1280px; margin-inline: auto; display: grid; gap: 18px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 32px; }
+.mark { display: grid; gap: 2px; }
+.mark h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(44px, 6vw, 72px); line-height: .9; letter-spacing: .02em; text-transform: uppercase; color: var(--dropout); }
+.mark p { margin: 0; max-width: 56ch; font-size: 17px; text-wrap: balance; }
+.engine { display: inline-flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 12px; background: var(--stock); }
+.engine i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.engine.on i { background: var(--pass); }
+.engine.err i { background: var(--fail); }
+
+.stage { background: var(--stock); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+.stage-scroll { overflow-x: auto; }
+#stage { display: block; width: 100%; min-width: 760px; height: auto; user-select: none; }
+
+.caption { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; align-items: start; padding: 16px 20px 18px; border-top: 1px solid var(--rule); min-height: 118px; }
+.caption .num { grid-row: span 3; font-family: var(--display); font-weight: 800; font-size: 64px; line-height: .85; color: var(--stamp); font-variant-numeric: tabular-nums; }
+.caption h2 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 28px; line-height: 1; letter-spacing: .03em; text-transform: uppercase; text-wrap: balance; }
+.caption p { margin: 0; max-width: 70ch; }
+.caption .result { font-family: var(--mono); font-size: 12.5px; color: var(--muted); min-height: 1.4em; }
+.caption .result b { font-weight: 500; }
+.caption .result .bad { color: var(--fail); }
+.caption .result .good { color: var(--pass); }
+.cheats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.cheats[hidden] { display: none; }
+
+button { font: 600 14px/1 var(--body); color: var(--graphite); background: var(--stock); border: 1.5px solid var(--rule); border-radius: 6px; padding: 10px 14px; cursor: pointer; }
+button:hover { border-color: var(--dropout); }
+button:focus-visible { outline: 3px solid color-mix(in srgb, var(--dropout) 55%, transparent); outline-offset: 2px; }
+button.primary { background: var(--dropout); border-color: var(--dropout); color: var(--stock); }
+button.cheat { border-color: color-mix(in srgb, var(--fail) 45%, var(--stock)); }
+button.cheat:hover { border-color: var(--fail); }
+button[aria-pressed="true"] { border-color: var(--fail); background: color-mix(in srgb, var(--fail) 10%, var(--stock)); }
+
+nav.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { display: inline-flex; gap: 8px; align-items: baseline; padding: 8px 12px; }
+.chips button span { font-family: var(--display); font-weight: 800; font-size: 17px; color: var(--stamp); }
+.chips button[aria-current="step"] { border-color: var(--stamp); background: color-mix(in srgb, var(--stamp) 9%, var(--stock)); }
+.steps { display: flex; gap: 6px; }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 32px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 15px; }
+.notes h3 { margin: 0 0 4px; font-family: var(--display); font-weight: 800; font-size: 19px; letter-spacing: .05em; text-transform: uppercase; color: var(--dropout); }
+.notes p { margin: 0; max-width: 62ch; }
+.notes code, .facts { font-family: var(--mono); font-size: 12px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; color: var(--muted); }
+.facts dd { margin: 0; color: var(--graphite); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+a { color: var(--dropout); }
+
+/* SVG type and ink */
+.t-display { font-family: var(--display); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.t-body { font-family: var(--body); }
+.t-mono { font-family: var(--mono); }
+.t-keep { text-transform: none; }
+.f-dropout { fill: var(--dropout); } .f-graphite { fill: var(--graphite); } .f-stamp { fill: var(--stamp); }
+.f-muted { fill: var(--muted); } .f-stock { fill: var(--stock); } .f-pass { fill: var(--pass); } .f-fail { fill: var(--fail); }
+.f-vm-ink { fill: var(--vm-ink); }
+.s-dropout { stroke: var(--dropout); } .s-graphite { stroke: var(--graphite); } .s-stamp { stroke: var(--stamp); }
+.s-muted { stroke: var(--muted); } .s-rule { stroke: var(--rule); } .s-pass { stroke: var(--pass); } .s-fail { stroke: var(--fail); }
+.paper { fill: var(--stock); }
+.boardfill { fill: var(--board); }
+.vmfill { fill: var(--vm); }
+.bubble { fill: var(--stock); stroke: var(--dropout); stroke-width: 1.6; }
+#world * { pointer-events: none; }
+#stage.editable .tap, #stage.editable .tap * { pointer-events: auto; }
+.tap { cursor: pointer; }
+.tap:hover .bubble { fill: color-mix(in srgb, var(--dropout) 14%, var(--stock)); }
+.tap:focus-visible .bubble { stroke-width: 3.5; }
+.tap:focus { outline: none; }
+.edge { fill: none; stroke: var(--rule); stroke-width: 2.5; }
+
+/* Film mode: the page becomes a 16:9 frame for recording. */
+body.film { padding: 0; height: 100vh; overflow: hidden; }
+body.film .wrap { max-width: none; height: 100vh; gap: 0; grid-template-rows: 1fr auto; }
+body.film header.top, body.film nav.controls, body.film .notes, body.film .cheats { display: none; }
+body.film .stage { border: 0; border-radius: 0; display: grid; grid-template-rows: 1fr auto; height: 100vh; }
+body.film .stage-scroll { min-height: 0; display: grid; place-items: center; padding: 18px 40px 0; }
+body.film #stage { width: auto; height: 100%; max-width: 100%; min-width: 0; }
+body.film .caption { padding: 22px 64px 30px; min-height: 170px; grid-template-columns: auto 1fr auto; }
+body.film .caption .num { font-size: 96px; }
+body.film .caption h2 { font-size: 40px; }
+body.film .caption p { font-size: 22px; max-width: none; }
+body.film .caption .result { font-size: 16px; }
+body.film .filmtag { display: block; }
+.filmtag { display: none; grid-row: 1 / span 3; grid-column: 3; align-self: end; text-align: right; font-family: var(--mono); font-size: 14px; color: var(--muted); line-height: 1.7; }
+.card { position: fixed; inset: 0; display: none; place-content: center; gap: 18px; text-align: center; background: var(--stock); z-index: 5; }
+body.film .card { display: grid; opacity: 0; pointer-events: none; }
+.card h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 180px; line-height: .85; letter-spacing: .02em; text-transform: uppercase; color: var(--dropout); }
+.card p { margin: 0 auto; max-width: 30ch; font-size: 36px; line-height: 1.25; text-wrap: balance; }
+.card small { font-family: var(--mono); font-size: 20px; color: var(--muted); }
+
+@media (max-width: 560px) {
+  .caption { grid-template-columns: 1fr; }
+  .caption .num { grid-row: auto; font-size: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="mark">
+      <h1>Quaestor</h1>
+      <p>Proof that your grade was computed from the answer key the school sealed before the exam, without the key ever being revealed.</p>
+    </div>
+    <div class="engine" id="engine" role="status"><i></i><span>loading grading-core…</span></div>
+  </header>
+
+  <section class="stage" aria-label="Animated walkthrough">
+    <div class="stage-scroll">
+      <svg id="stage" viewBox="0 0 1600 900" role="img" aria-labelledby="capTitle capText">
+        <g id="world"></g>
+      </svg>
+    </div>
+    <div class="caption">
+      <div class="num" id="capNum">1</div>
+      <h2 id="capTitle">Before the exam</h2>
+      <p id="capText">The school seals its answer key together with a secret salt, and posts only the seal.</p>
+      <div class="result" id="capResult" aria-live="polite"></div>
+      <div class="cheats" id="cheats" hidden>
+        <button class="cheat" id="cheatKey" type="button">Change the key after the exam</button>
+        <button class="cheat" id="cheatSwap" type="button">Give you someone else's result</button>
+        <button class="cheat" id="cheatRaise" type="button">Raise a published score</button>
+      </div>
+      <div class="filmtag">quaestor grading-core<br>Rust → WebAssembly, running live<br>ZK proof step simulated</div>
+    </div>
+  </section>
+
+  <nav class="controls" aria-label="Chapters">
+    <div class="chips" id="chips">
+      <button type="button" data-ch="1"><span>1</span>Seal</button>
+      <button type="button" data-ch="2"><span>2</span>Exam</button>
+      <button type="button" data-ch="3"><span>3</span>Prove</button>
+      <button type="button" data-ch="4"><span>4</span>Check</button>
+      <button type="button" data-ch="5"><span>5</span>Cheat</button>
+    </div>
+    <div class="steps">
+      <button type="button" id="prev">Back</button>
+      <button type="button" id="replay">Replay</button>
+      <button type="button" id="next" class="primary">Next</button>
+      <button type="button" id="playAll">Play all</button>
+    </div>
+  </nav>
+
+  <section class="notes">
+    <div>
+      <h3>What runs here</h3>
+      <p>Every seal, answer-sheet fingerprint, grade, Merkle path and check on this page is computed live by quaestor's own Rust code (<code>grading-core</code>), compiled to WebAssembly. Change your answers in chapter 2 and every later chapter is recomputed.</p>
+    </div>
+    <div>
+      <h3>What is simulated</h3>
+      <p>The zero-knowledge proof itself. In quaestor the grading runs inside the SP1 zkVM, which proves it ran correctly. Producing that proof needs a machine with 24 GB or more of memory, so here the proof is drawn, not generated. The checks around it are the real ones.</p>
+    </div>
+    <div>
+      <h3>Live values</h3>
+      <dl class="facts">
+        <dt>exam</dt><dd>20260701 · 5 questions · Q5 cancelled</dd>
+        <dt>posted seal</dt><dd id="factSeal">…</dd>
+        <dt>sitting root</dt><dd id="factRoot">…</dd>
+        <dt>source</dt><dd><a href="https://github.com/kadircanyildirm-crypto/quaestor">github.com/kadircanyildirm-crypto/quaestor</a></dd>
+      </dl>
+    </div>
+  </section>
+</div>
+
+<div class="card" id="titleCard">
+  <h1>Quaestor</h1>
+  <p>Proof that your grade came from the answer key sealed before the exam.</p>
+</div>
+<div class="card" id="endCard">
+  <h1>Quaestor</h1>
+  <p>Honest grades verify. Every forgery is rejected.</p>
+  <small>github.com/kadircanyildirm-crypto/quaestor</small>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+/*WASM2JS*/
+</script>
+<script>
+const WASM_B64 = "/*WASM_B64*/";
+/*ENGINE*/
+
+(() => {
+"use strict";
+const FILM = new URLSearchParams(location.search).has("film");
+const REDUCED = !FILM && matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (FILM) document.body.classList.add("film");
+
+// ── data: the repo's demo exam (examples/demo-exam) plus a fourth candidate ──
+const KEY = { numChoices: 5, policy: "full_credit", questions: [
+  { weight: 20, accepted: [2] }, { weight: 20, accepted: [0] }, { weight: 20, accepted: [1, 3] },
+  { weight: 20, accepted: [4] }, { weight: 20, accepted: [], cancelled: true } ] };
+// The repo's demo salt. A real exam uses 32 random bytes the school keeps secret.
+const SALT = new Uint8Array(32).fill(1);
+const SHEETS = [
+  { pseudonym: "1122334455667788112233445566778811223344556677881122334455667788", answers: [2, 1, 3, 1, null] },
+  { pseudonym: "9f2c74e6b1a8d3059f2c74e6b1a8d3059f2c74e6b1a8d3059f2c74e6b1a8d305", answers: [2, 0, 3, 1, null] },
+  { pseudonym: "c3d4e5f6a7b8091ac3d4e5f6a7b8091ac3d4e5f6a7b8091ac3d4e5f6a7b8091a", answers: [2, 0, 1, 4, null] },
+  { pseudonym: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", answers: [0, 1, 2, 3, null] },
+];
+const YOU = 1;
+const LETTERS = "ABCDE";
+const COL = [230, 610, 990, 1370];
+
+let E = null;           // engine over grading-core
+const st = {};          // everything grading-core computed for the honest sitting
+
+function compute() {
+  st.C = E.commit(KEY, SALT);
+  st.hashes = SHEETS.map((s) => E.sheetHash(s));
+  st.batch = E.gradeBatch(KEY, SALT, SHEETS);
+  st.scores = st.batch.reports.map(readScore);
+  document.getElementById("factSeal").textContent = bytesToHex(st.C);
+  document.getElementById("factRoot").textContent = bytesToHex(st.batch.root);
+}
+
+// ── tiny SVG helpers ──
+const NS = "http://www.w3.org/2000/svg";
+function S(tag, attrs, parent) {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs || {}) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+function T(text, attrs, parent) { const el = S("text", attrs, parent); el.textContent = text; return el; }
+function clear(g) { while (g.firstChild) g.firstChild.remove(); }
+const world = document.getElementById("world");
+const short = (b, n = 4) => bytesToHex(b.slice(0, n)) + "…" + bytesToHex(b.slice(32 - n));
+const pct = (bp) => (bp / 100).toFixed(0) + "%";
+let uid = 0;
+
+// A hash drawn as a rubber-stamp seal: 16 petals from bytes 0-15, 16 dots from bytes 16-31.
+function drawSeal(parent, bytes, { r = 92, ink = "stamp", ring = "", cx = 0, cy = 0 } = {}) {
+  const g = S("g", { transform: `translate(${cx},${cy})` }, parent);
+  S("circle", { r, fill: "none", class: `s-${ink}`, "stroke-width": r > 50 ? 3 : 2 }, g);
+  const inner = ring ? r - 15 : r - 6;
+  S("circle", { r: inner, fill: "none", class: `s-${ink}`, "stroke-width": 1.2, opacity: .7 }, g);
+  if (ring) {
+    const id = "ring" + uid++;
+    const rr = r - 8;
+    S("path", { id, d: `M ${-rr},0 a ${rr},${rr} 0 1,1 ${2 * rr},0 a ${rr},${rr} 0 1,1 ${-2 * rr},0`, fill: "none" }, g);
+    const fs = r * 0.11;
+    const circ = 2 * Math.PI * rr;
+    // Repeat the legend until it rings the seal, then even out the spacing.
+    const reps = Math.max(1, Math.floor((circ * 0.92) / (ring.length * fs * 0.52)));
+    const t = S("text", { class: `t-display f-${ink}`, "font-size": fs }, g);
+    const tp = S("textPath", { href: "#" + id, startOffset: "0", textLength: (circ * 0.985).toFixed(1), lengthAdjust: "spacing" }, t);
+    tp.textContent = ring.repeat(reps);
+  }
+  const petals = [], dots = [];
+  const r0 = inner * 0.16;
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 - Math.PI / 2;
+    const len = inner * (0.12 + (bytes[i] / 255) * 0.5);
+    petals.push(S("line", { x1: Math.cos(a) * r0, y1: Math.sin(a) * r0, x2: Math.cos(a) * (r0 + len), y2: Math.sin(a) * (r0 + len),
+      class: `s-${ink}`, "stroke-width": Math.max(2, inner * 0.07), "stroke-linecap": "round" }, g));
+  }
+  for (let i = 0; i < 16; i++) {
+    const a = ((i + 0.5) / 16) * Math.PI * 2 - Math.PI / 2;
+    const rd = inner * 0.84;
+    dots.push(S("circle", { cx: Math.cos(a) * rd, cy: Math.sin(a) * rd, r: Math.max(0.8, inner * (0.02 + (bytes[16 + i] / 255) * 0.07)), class: `f-${ink}` }, g));
+  }
+  S("circle", { r: Math.max(2, inner * 0.07), class: `f-${ink}` }, g);
+  g._petals = petals; g._dots = dots; g._bytes = bytes; g._ink = ink;
+  return g;
+}
+
+// A hash drawn as OMR timing marks: 32 bars, one per byte.
+function drawStrip(parent, bytes, { x = 0, y = 0, h = 250, w = 22, ink = "graphite" } = {}) {
+  const g = S("g", { transform: `translate(${x},${y})` }, parent);
+  const step = h / 32;
+  const bars = [];
+  for (let i = 0; i < 32; i++) {
+    bars.push(S("rect", { x: 0, y: i * step, width: w * (0.22 + (bytes[i] / 255) * 0.78), height: Math.max(1.5, step * 0.56), class: `f-${ink}` }, g));
+  }
+  g._bars = bars; g._bytes = bytes;
+  return g;
+}
+
+// ── actors ──
+const A = {};
+
+function buildBoard() {
+  const g = S("g", { id: "board" }, world);
+  S("rect", { x: 0, y: 0, width: 340, height: 320, rx: 6, class: "boardfill s-rule", "stroke-width": 1.5 }, g);
+  T("Notice board · public", { x: 20, y: 30, class: "t-display f-dropout", "font-size": 22 }, g);
+  S("rect", { x: 20, y: 44, width: 300, height: 258, rx: 3, class: "paper s-rule", "stroke-width": 1 }, g);
+  S("circle", { cx: 60, cy: 50, r: 6, class: "f-stamp" }, g);
+  S("circle", { cx: 280, cy: 50, r: 6, class: "f-stamp" }, g);
+  T("Exam 20260701 · answer-key seal", { x: 170, y: 76, "text-anchor": "middle", class: "t-display f-muted", "font-size": 16 }, g);
+  A.slot = S("circle", { cx: 170, cy: 180, r: 92, fill: "none", class: "s-muted", "stroke-width": 1.5, "stroke-dasharray": "6 7" }, g);
+  A.boardSeal = S("g", {}, g);
+  A.boardHex = T("", { x: 170, y: 292, "text-anchor": "middle", class: "t-mono f-graphite", "font-size": 12 }, g);
+  A.boardRing = S("circle", { cx: 170, cy: 180, r: 100, fill: "none", "stroke-width": 6, opacity: 0, class: "s-pass" }, g);
+  gsap.set(g, { x: 40, y: 30 });
+  A.board = g;
+}
+
+function buildSchool() {
+  const g = S("g", { id: "school" }, world);
+  S("rect", { x: 0, y: 0, width: 340, height: 320, rx: 6, fill: "none", class: "s-muted", "stroke-width": 1.5, "stroke-dasharray": "8 6" }, g);
+  T("School · private", { x: 20, y: 30, class: "t-display f-muted", "font-size": 22 }, g);
+  const lock = S("g", { transform: "translate(306,20)" }, g);
+  S("rect", { x: -9, y: -2, width: 18, height: 14, rx: 2, class: "f-muted" }, lock);
+  S("path", { d: "M -5,-2 v -5 a 5,5 0 0 1 10,0 v 5", fill: "none", class: "s-muted", "stroke-width": 2.5 }, lock);
+  gsap.set(g, { x: 1220, y: 30 });
+  A.school = g;
+}
+
+function buildEnvelope() {
+  const g = S("g", { id: "envelope" }, world);
+  S("rect", { x: -150, y: -90, width: 300, height: 180, rx: 4, class: "paper s-dropout", "stroke-width": 2 }, g);
+  S("path", { d: "M -150,90 L 0,10 L 150,90", fill: "none", class: "s-rule", "stroke-width": 1.5 }, g);
+  A.flap = S("path", { d: "M -150,-90 L 0,20 L 150,-90 Z", class: "paper s-dropout", "stroke-width": 2, "stroke-linejoin": "round" }, g);
+  T("Sealed answer key", { x: 0, y: 80, "text-anchor": "middle", class: "t-display f-muted", "font-size": 15 }, g);
+  A.envSeal = S("g", { transform: "translate(0,6)" }, g);
+  A.envelope = g;
+}
+
+function drawFormRows(g, { key = null, answers = null, tappable = false } = {}) {
+  const marks = [];
+  for (let q = 0; q < 5; q++) {
+    const y = 70 + q * 50;
+    T(String(q + 1), { x: 54, y: y + 7, "text-anchor": "middle", class: "t-display f-dropout", "font-size": 22 }, g);
+    const row = [];
+    for (let c = 0; c < 5; c++) {
+      const cx = 96 + c * 42;
+      const b = S("g", tappable ? { class: "tap", tabindex: 0, role: "button", "aria-label": `Question ${q + 1}, answer ${LETTERS[c]}`, "data-q": q, "data-c": c } : {}, g);
+      S("circle", { cx, cy: y, r: 15, class: "bubble" }, b);
+      T(LETTERS[c], { x: cx, y: y + 5, "text-anchor": "middle", class: "t-display f-dropout", "font-size": 14 }, b);
+      const m = S("circle", { cx, cy: y, r: 12.5, class: "f-graphite", opacity: 0, "pointer-events": "none" }, b);
+      row.push(m);
+    }
+    marks.push(row);
+    if (key && key.questions[q].cancelled) {
+      S("line", { x1: 40, y1: y, x2: 280, y2: y, class: "s-fail", "stroke-width": 2.5, opacity: .8 }, g);
+      T("cancelled", { x: 282, y: y - 18, "text-anchor": "end", class: "t-display f-fail", "font-size": 13 }, g);
+    }
+  }
+  return marks;
+}
+
+function buildKeyCard() {
+  const g = S("g", { id: "keycard" }, world);
+  S("rect", { x: 0, y: 0, width: 300, height: 310, rx: 4, class: "paper s-stamp", "stroke-width": 2.5 }, g);
+  T("Answer key", { x: 18, y: 32, class: "t-display f-stamp", "font-size": 22 }, g);
+  T("20260701", { x: 284, y: 31, "text-anchor": "end", class: "t-mono f-muted", "font-size": 11 }, g);
+  A.keyMarks = drawFormRows(g, { key: KEY });
+  A.keycard = g;
+}
+
+function buildSalt() {
+  const g = S("g", { id: "salt" }, world);
+  S("rect", { x: 0, y: 0, width: 176, height: 124, rx: 4, class: "paper s-stamp", "stroke-width": 2.5 }, g);
+  T("Salt · secret", { x: 14, y: 28, class: "t-display f-stamp", "font-size": 18 }, g);
+  for (let i = 0; i < 32; i++) {
+    S("rect", { x: 16 + (i % 8) * 18, y: 40 + Math.floor(i / 8) * 18, width: 13, height: 13, rx: 2, class: "f-stamp", opacity: 0.25 + (SALT[i] / 255) * 0.75 }, g);
+  }
+  A.salt = g;
+}
+
+function buildSheets() {
+  A.sheets = SHEETS.map((s, i) => {
+    const g = S("g", { id: "sheet" + i }, world);
+    const you = i === YOU;
+    S("rect", { x: 0, y: 0, width: 300, height: 310, rx: 4, class: "paper " + (you ? "s-stamp" : "s-dropout"), "stroke-width": you ? 3 : 1.6 }, g);
+    T("#" + s.pseudonym.slice(0, 8) + "…", { x: 46, y: 30, class: "t-mono f-graphite", "font-size": 12 }, g);
+    if (you) T("You", { x: 284, y: 31, "text-anchor": "end", class: "t-display f-stamp", "font-size": 20 }, g);
+    const marks = drawFormRows(g, { tappable: you });
+    const strip = S("g", {}, g);
+    g._marks = marks; g._strip = strip;
+    return g;
+  });
+}
+
+function buildVm() {
+  const g = S("g", { id: "vm" }, world);
+  S("rect", { x: -190, y: -104, width: 380, height: 208, rx: 12, class: "vmfill" }, g);
+  S("rect", { x: -54, y: -110, width: 108, height: 10, rx: 3, class: "f-muted" }, g);
+  S("rect", { x: -64, y: 100, width: 128, height: 10, rx: 3, class: "f-muted" }, g);
+  T("SP1 zkVM", { x: -164, y: -66, class: "t-display t-keep f-vm-ink", "font-size": 28 }, g);
+  T("RISC-V · runs grading-core · inputs stay inside", { x: -164, y: -44, class: "t-body f-vm-ink", "font-size": 12, opacity: .7 }, g);
+  A.cells = [];
+  for (let i = 0; i < 80; i++) {
+    A.cells.push(S("rect", { x: -164 + (i % 20) * 16.6, y: -30 + Math.floor(i / 20) * 16, width: 11, height: 11, rx: 2, class: "f-vm-ink", opacity: .12 }, g));
+  }
+  S("rect", { x: -164, y: 44, width: 328, height: 6, rx: 3, class: "f-vm-ink", opacity: .15 }, g);
+  A.vmBar = S("rect", { x: -164, y: 44, width: 328, height: 6, rx: 3, class: "f-pass" }, g);
+  A.vmCycles = T("", { x: 164, y: 74, "text-anchor": "end", class: "t-mono f-vm-ink", "font-size": 12, opacity: .8 }, g);
+  A.vm = g;
+}
+
+function buildReceipts() {
+  A.receipts = SHEETS.map((s, i) => {
+    const g = S("g", { id: "rcpt" + i }, world);
+    const you = i === YOU;
+    g._frame = S("rect", { x: 0, y: 0, width: 260, height: 190, rx: 4, class: "paper " + (you ? "s-stamp" : "s-dropout"), "stroke-width": you ? 3 : 1.6 }, g);
+    T("#" + s.pseudonym.slice(0, 8) + "…", { x: 14, y: 26, class: "t-mono f-graphite", "font-size": 12 }, g);
+    if (you) T("You", { x: 228, y: 27, "text-anchor": "end", class: "t-display f-stamp", "font-size": 18 }, g);
+    g._seal = S("g", { transform: "translate(54,108)" }, g);
+    g._score = T("", { x: 102, y: 126, class: "t-display f-graphite", "font-size": 58 }, g);
+    g._counts = T("", { x: 104, y: 156, class: "t-body f-muted", "font-size": 12 }, g);
+    g._strip = S("g", {}, g);
+    g._ring = S("rect", { x: -6, y: -6, width: 272, height: 202, rx: 8, fill: "none", "stroke-width": 5, opacity: 0, class: "s-pass" }, g);
+    return g;
+  });
+}
+
+function buildTree() {
+  const g = S("g", { id: "tree" }, world);
+  A.edgesLeaf = [0, 1, 2, 3].map((i) => S("path", { class: "edge", d: `M ${COL[i]},566 L ${i < 2 ? 420 : 1180},492` }, g));
+  A.edgesNode = [0, 1].map((i) => S("path", { class: "edge", d: i ? "M 1180,452 L 860,368" : "M 420,452 L 740,368" }, g));
+  const chip = (cx, cy, w) => {
+    const c = S("g", { transform: `translate(${cx},${cy})` }, g);
+    c._box = S("rect", { x: -w / 2, y: -20, width: w, height: 40, rx: 4, class: "paper s-dropout", "stroke-width": 1.6 }, c);
+    c._txt = T("", { x: 0, y: 5, "text-anchor": "middle", class: "t-mono f-graphite", "font-size": 13 }, c);
+    c._ring = S("rect", { x: -w / 2 - 5, y: -25, width: w + 10, height: 50, rx: 7, fill: "none", "stroke-width": 4, opacity: 0, class: "s-pass" }, c);
+    return c;
+  };
+  A.leaves = COL.map((x) => chip(x, 586, 150));
+  A.nodes = [chip(420, 472, 160), chip(1180, 472, 160)];
+  A.root = S("g", { transform: "translate(800,352)" }, g);
+  A.rootSeal = S("g", {}, A.root);
+  A.rootRing = S("circle", { r: 70, fill: "none", "stroke-width": 6, opacity: 0, class: "s-pass" }, A.root);
+  const badge = S("g", { transform: "translate(892,352)" }, g);
+  S("rect", { x: 0, y: -21, width: 138, height: 42, rx: 21, class: "vmfill" }, badge);
+  T("ZK proof", { x: 44, y: 7, class: "t-display f-vm-ink", "font-size": 20 }, badge);
+  A.badgeIcon = icon(badge, 22, 0, 13);
+  A.badge = badge;
+  A.tree = g;
+}
+
+// pending / pass / fail status mark
+function icon(parent, x, y, r) {
+  const g = S("g", { transform: `translate(${x},${y})` }, parent);
+  g._pending = S("circle", { r, fill: "none", class: "s-muted", "stroke-width": 2 }, g);
+  const ok = S("g", { opacity: 0 }, g);
+  S("circle", { r, class: "f-pass" }, ok);
+  S("path", { d: `M ${-r * .45},${r * .02} L ${-r * .1},${r * .38} L ${r * .5},${-r * .38}`, fill: "none", stroke: "var(--stock)", "stroke-width": r * .22, "stroke-linecap": "round", "stroke-linejoin": "round" }, ok);
+  const bad = S("g", { opacity: 0 }, g);
+  S("circle", { r, class: "f-fail" }, bad);
+  S("path", { d: `M ${-r * .38},${-r * .38} L ${r * .38},${r * .38} M ${r * .38},${-r * .38} L ${-r * .38},${r * .38}`, fill: "none", stroke: "var(--stock)", "stroke-width": r * .22, "stroke-linecap": "round" }, bad);
+  g._ok = ok; g._bad = bad;
+  return g;
+}
+function setIcon(tl, ic, state, at) {
+  tl.to(ic._pending, { opacity: state === "pending" ? 1 : 0, duration: .2 }, at);
+  tl.to(ic._ok, { opacity: state === "pass" ? 1 : 0, duration: .25 }, "<");
+  tl.fromTo(state === "fail" ? ic._bad : ic._ok, { scale: state === "pending" ? 1 : .4, transformOrigin: "50% 50%" }, { scale: 1, duration: .35, ease: "back.out(3)" }, "<");
+  tl.to(ic._bad, { opacity: state === "fail" ? 1 : 0, duration: .25 }, "<");
+}
+
+function buildPanel() {
+  const g = S("g", { id: "panel", transform: "translate(800,150)" }, world);
+  S("rect", { x: -200, y: -110, width: 400, height: 220, rx: 8, class: "paper s-stamp", "stroke-width": 2.5 }, g);
+  A.panelTitle = T("Your check", { x: -176, y: -76, class: "t-display f-stamp", "font-size": 22 }, g);
+  const labels = ["Same seal as posted before the exam", "Graded your own answers", "Your row is in the proven sitting", "ZK proof verifies (simulated here)"];
+  A.checks = labels.map((l, i) => {
+    const y = -36 + i * 40;
+    const ic = icon(g, -164, y, 12);
+    ic._label = T(l, { x: -140, y: y + 5, class: "t-body f-graphite", "font-size": 15 }, g);
+    return ic;
+  });
+  A.panel = g;
+}
+
+// ── dynamic content from grading-core results ──
+function paint() {
+  clear(A.boardSeal); drawSeal(A.boardSeal, st.C, { r: 92, ring: "Quaestor · exam 20260701 · answer key · ", cx: 170, cy: 180 });
+  A.boardHex.textContent = short(st.C, 6);
+  clear(A.envSeal); drawSeal(A.envSeal, st.C, { r: 50 });
+  SHEETS.forEach((s, i) => paintSheet(i));
+  paintKey(KEY);
+  paintBatch(st.batch, st.C);
+}
+function paintKey(key) {
+  A.keyMarks.forEach((row, q) => row.forEach((m, c) => gsap.set(m, { opacity: key.questions[q].accepted.includes(c) ? 1 : 0 })));
+}
+function paintSheet(i) {
+  const g = A.sheets[i];
+  g._marks.forEach((row, q) => row.forEach((m, c) => {
+    gsap.set(m, { opacity: SHEETS[i].answers[q] === c ? 1 : 0, scale: 1, transformOrigin: "50% 50%" });
+  }));
+  clear(g._strip); drawStrip(g._strip, st.hashes[i], { x: 10, y: 52, h: 248, w: 24 });
+}
+function paintBatch(batch, commitment) {
+  batch.reports.forEach((pv, i) => paintReceipt(i, pv));
+  batch.leaves.forEach((l, i) => (A.leaves[i]._txt.textContent = bytesToHex(l.slice(0, 5)) + "…"));
+  // Parents come straight out of the inclusion paths grading-core cut.
+  A.nodes[0]._txt.textContent = bytesToHex(batch.paths[2][1].slice(0, 5)) + "…";
+  A.nodes[1]._txt.textContent = bytesToHex(batch.paths[0][1].slice(0, 5)) + "…";
+  clear(A.rootSeal); drawSeal(A.rootSeal, batch.root, { r: 58, ink: "dropout", ring: "sitting root · one proof · " });
+}
+function paintReceipt(i, pv) {
+  const g = A.receipts[i];
+  const sc = readScore(pv);
+  clear(g._seal); drawSeal(g._seal, pv.slice(0, 32), { r: 38 });
+  g._score.textContent = pct(sc.scoreBp);
+  g._counts.textContent = `${sc.correct} right · ${sc.wrong} wrong`;
+  clear(g._strip); drawStrip(g._strip, pv.slice(32, 64), { x: 228, y: 40, h: 136, w: 18 });
+  g._pv = pv;
+}
+
+// ── layout states ──
+const SHEET_Y = 548, RCPT_Y = 670;
+function home() {
+  gsap.killTweensOf("*");
+  paint();
+  gsap.set(A.keycard, { x: 470, y: 160, scale: 1, opacity: 1, transformOrigin: "50% 50%" });
+  gsap.set(A.salt, { x: 840, y: 250, scale: 1, opacity: 1, transformOrigin: "50% 50%" });
+  gsap.set(A.envelope, { x: 760, y: 330, scale: 1, opacity: 0, transformOrigin: "50% 50%" });
+  gsap.set(A.flap, { scaleY: -1, transformOrigin: "50% 0%" });
+  gsap.set(A.envSeal, { opacity: 0 });
+  gsap.set([A.boardSeal, A.boardHex], { opacity: 0 });
+  gsap.set(A.slot, { opacity: 1 });
+  gsap.set(A.boardRing, { opacity: 0 });
+  A.sheets.forEach((g, i) => gsap.set(g, { x: COL[i] - 150, y: SHEET_Y, scale: 1, opacity: 0, transformOrigin: "50% 50%" }));
+  gsap.set(A.vm, { x: 800, y: 150, opacity: 0, scale: .92, transformOrigin: "50% 50%" });
+  gsap.set(A.cells, { opacity: .12 });
+  gsap.set(A.vmBar, { scaleX: 0, transformOrigin: "0% 50%" });
+  A.vmCycles.textContent = "";
+  A.receipts.forEach((g, i) => { gsap.set(g, { x: COL[i] - 130, y: RCPT_Y, scale: 1, opacity: 0, transformOrigin: "50% 50%" }); gsap.set(g._ring, { opacity: 0 }); });
+  gsap.set(A.tree, { opacity: 1 });
+  gsap.set([...A.leaves, ...A.nodes, A.root, A.badge], { opacity: 0, scale: 1, transformOrigin: "50% 50%" });
+  [...A.leaves, ...A.nodes].forEach((c) => gsap.set(c._ring, { opacity: 0 }));
+  gsap.set(A.rootRing, { opacity: 0 });
+  [...A.edgesLeaf, ...A.edgesNode].forEach((e) => { e.style.stroke = ""; gsap.set(e, { strokeDasharray: 1000, strokeDashoffset: 1000, opacity: 1 }); });
+  gsap.set(A.panel, { opacity: 0, scale: .95, transformOrigin: "50% 50%" });
+  A.checks.forEach((c) => { gsap.set(c._pending, { opacity: 1 }); gsap.set([c._ok, c._bad], { opacity: 0 }); });
+  gsap.set(A.badgeIcon._pending, { opacity: 1 }); gsap.set([A.badgeIcon._ok, A.badgeIcon._bad], { opacity: 0 });
+  document.getElementById("capResult").innerHTML = "";
+}
+
+// ── chapters ──
+const CAPS = {
+  1: ["Before the exam", "The school seals its answer key together with a secret salt, and posts only the seal."],
+  2: ["The exam", "Students mark their sheets. Each sheet gets a fingerprint, its SHA-256 hash, drawn here as timing marks." +
+      (FILM ? "" : " Tap a bubble on your sheet to change your answers.")],
+  3: ["Grading, proven", "The grader runs inside a zkVM. Out come everyone's results and one proof for the whole sitting."],
+  4: ["Your check", "Your result carries the posted seal, your answers' fingerprint, and a path to the proven root."],
+  5: ["Try to cheat", "Each forgery below is checked by the same code a student runs. None gets through."],
+};
+function caption(n, title, text) {
+  document.getElementById("capNum").textContent = n;
+  document.getElementById("capTitle").textContent = title || CAPS[n][0];
+  document.getElementById("capText").textContent = text || CAPS[n][1];
+}
+function result(html) { document.getElementById("capResult").innerHTML = html; }
+
+function ch1() {
+  const tl = gsap.timeline();
+  tl.to(A.envelope, { opacity: 1, duration: .5 }, .3)
+    .to(A.keycard, { x: 610, y: 175, scale: .28, opacity: 0, duration: .9, ease: "power2.in" }, .7)
+    .to(A.salt, { x: 672, y: 268, scale: .28, opacity: 0, duration: .9, ease: "power2.in" }, .85)
+    .to(A.flap, { scaleY: 1, duration: .45, ease: "power2.inOut" }, 1.75)
+    .fromTo(A.envSeal, { opacity: 0, scale: 2.4, rotation: -30, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, rotation: -6, duration: .32, ease: "power4.in" }, 2.35)
+    .to(A.envelope, { y: 336, duration: .06, yoyo: true, repeat: 1 }, 2.67);
+  const fly = S("g", {}, world);
+  drawSeal(fly, st.C, { r: 92, ring: "Quaestor · exam 20260701 · answer key · " });
+  gsap.set(fly, { x: 760, y: 336, scale: 50 / 92, rotation: -6, opacity: 0, transformOrigin: "50% 50%" });
+  tl.set(fly, { opacity: 1 }, 3.0)
+    .to(fly, { x: 210, y: 210, scale: 1, rotation: 0, duration: 1.2, ease: "power3.inOut" }, 3.0)
+    .to(A.slot, { opacity: 0, duration: .3 }, 3.9)
+    .set(fly, { opacity: 0 }, 4.2)
+    .set(A.boardSeal, { opacity: 1 }, 4.2)
+    .to(A.boardHex, { opacity: 1, duration: .5 }, 4.2)
+    .call(() => fly.remove(), null, 4.25)
+    .to(A.envelope, { x: 1390, y: 205, scale: .72, duration: 1.1, ease: "power3.inOut" }, 4.4);
+  return tl;
+}
+
+function ch2() {
+  const tl = gsap.timeline();
+  A.sheets.forEach((g, i) => tl.fromTo(g, { opacity: 0, y: SHEET_Y + 60 }, { opacity: 1, y: SHEET_Y, duration: .6, ease: "power2.out" }, .2 + i * .12));
+  A.sheets.forEach((g, i) => {
+    const marks = g._marks.flatMap((row, q) => row.filter((m, c) => SHEETS[i].answers[q] === c));
+    tl.fromTo(marks, { scale: 0, opacity: 0, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, duration: .25, ease: "back.out(2)", stagger: .22 }, 1.0 + i * .18);
+    tl.fromTo(g._strip.firstChild._bars, { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: .18, stagger: .025 }, 2.3 + i * .15);
+  });
+  return tl;
+}
+
+function ch3() {
+  const tl = gsap.timeline();
+  tl.to(A.vm, { opacity: 1, scale: 1, duration: .6, ease: "power2.out" }, .2)
+    .to(A.envelope, { x: 800, y: 40, scale: .18, opacity: 0, duration: 1, ease: "power2.in" }, .8);
+  A.sheets.forEach((g, i) => tl.to(g, { x: 800 - 150, y: -110, scale: .14, opacity: 0, duration: .9, ease: "power2.in" }, 1.5 + i * .18));
+  tl.to(A.cells, { opacity: .95, duration: .12, repeat: 5, yoyo: true, stagger: { each: .012, from: "random" } }, 2.6)
+    .to(A.vmBar, { scaleX: 1, duration: 2.1, ease: "none" }, 2.6)
+    .call(() => (A.vmCycles.textContent = "grade_batch() · 4 sheets"), null, 2.6)
+    .to(A.cells, { opacity: .12, duration: .3 }, 4.8)
+    .set(A.envelope, { x: 1390, y: 205, scale: .72 }, 5.0)
+    .to(A.envelope, { opacity: 1, duration: .6 }, 5.0);
+  A.receipts.forEach((g, i) => tl.fromTo(g, { x: 800 - 130, y: 160, scale: .2, opacity: 0 }, { x: COL[i] - 130, y: RCPT_Y, scale: 1, opacity: 1, duration: 1, ease: "power3.out" }, 4.9 + i * .2));
+  tl.to(A.leaves, { opacity: 1, duration: .35, stagger: .1 }, 6.1)
+    .to(A.edgesLeaf, { strokeDashoffset: 0, duration: .5, stagger: .08 }, 6.4)
+    .to(A.nodes, { opacity: 1, duration: .35, stagger: .1 }, 6.8)
+    .to(A.edgesNode, { strokeDashoffset: 0, duration: .5, stagger: .1 }, 7.0)
+    .fromTo(A.root, { opacity: 0, scale: 1.8 }, { opacity: 1, scale: 1, duration: .35, ease: "power4.in" }, 7.4)
+    .fromTo(A.badge, { opacity: 0, scale: .6 }, { opacity: 1, scale: 1, duration: .5, ease: "back.out(2)" }, 7.9)
+    .to(A.vm, { opacity: .35, duration: .6 }, 8.2);
+  return tl;
+}
+
+const rcptPos = (i) => ({ x: COL[i] - 130, y: RCPT_Y });
+// Flight of the seal printed on a result to the notice board, where it is judged.
+function sealCompare(tl, at, pos, pvC, accepted) {
+  const fly = S("g", {}, world);
+  const seal = drawSeal(fly, pvC, { r: 92, ring: "Quaestor · exam 20260701 · answer key · " });
+  gsap.set(fly, { x: pos.x + 54, y: pos.y + 108, scale: 38 / 92, opacity: 0, transformOrigin: "50% 50%" });
+  tl.set(fly, { opacity: 1 }, at)
+    .to(fly, { x: 210, y: 210, scale: 1, duration: 1.2, ease: "power3.inOut" }, at);
+  if (!accepted) {
+    const diff = [];
+    seal._petals.forEach((p, i) => { if (pvC[i] !== st.C[i]) diff.push(p); });
+    seal._dots.forEach((d, i) => { if (pvC[16 + i] !== st.C[16 + i]) diff.push(d); });
+    tl.call(() => diff.forEach((el) => el.setAttribute("class", el.tagName === "line" ? "s-fail" : "f-fail")), null, at + 1.25);
+    tl.to(fly, { x: 226, duration: .07, yoyo: true, repeat: 5 }, at + 1.3);
+  }
+  ring(tl, A.boardRing, accepted, at + 1.25);
+  tl.to(fly, { opacity: 0, duration: .4 }, at + (accepted ? 2.0 : 3.4)).call(() => fly.remove(), null, at + (accepted ? 2.45 : 3.85));
+  return tl;
+}
+function ring(tl, el, accepted, at, hold = 2.2) {
+  tl.call(() => el.setAttribute("class", accepted ? "s-pass" : "s-fail"), null, at)
+    .fromTo(el, { opacity: 0 }, { opacity: 1, duration: .25 }, at)
+    .to(el, { opacity: 0, duration: .5 }, at + hold);
+}
+// Your own copy of your fingerprint rises and lies over the strip printed on a result.
+function stripCompare(tl, at, pos, theirs, ringEl, accepted) {
+  const fly = S("g", {}, world);
+  const mine = st.hashes[YOU];
+  const s = drawStrip(fly, mine, { x: 0, y: 0, h: 136, w: 18 });
+  const lbl = T("your copy", { x: 9, y: 160, "text-anchor": "middle", class: "t-display f-stamp", "font-size": 15 }, fly);
+  gsap.set(fly, { x: pos.x + 228 + 46, y: 910, opacity: 0 });
+  tl.set(fly, { opacity: 1 }, at)
+    .to(fly, { y: pos.y + 40, duration: .8, ease: "power3.out" }, at)
+    .to(fly, { x: pos.x + 228, duration: .7, ease: "power2.inOut" }, at + 1.0)
+    .to(lbl, { opacity: 0, duration: .3 }, at + 1.0);
+  if (!accepted) {
+    tl.call(() => s._bars.forEach((b, i) => mine[i] !== theirs[i] && b.setAttribute("class", "f-fail")), null, at + 1.75);
+    tl.to(fly, { x: pos.x + 236, duration: .07, yoyo: true, repeat: 5 }, at + 1.8);
+  }
+  ring(tl, ringEl, accepted, at + 1.75);
+  tl.to(fly, { opacity: 0, duration: .4 }, at + (accepted ? 2.3 : 3.6)).call(() => fly.remove(), null, at + (accepted ? 2.75 : 4.05));
+}
+function pathClimb(tl, at, index, accepted, leafChanged = false) {
+  const sib = index ^ 1, node = index < 2 ? 0 : 1;
+  const steps = [
+    [A.leaves[index]._ring, accepted || !leafChanged],
+    [A.leaves[sib]._ring, true],
+    [A.edgesLeaf[index], accepted], [A.edgesLeaf[sib], accepted],
+    [A.nodes[node]._ring, accepted],
+    [A.nodes[1 - node]._ring, true],
+    [A.edgesNode[node], accepted], [A.edgesNode[1 - node], accepted],
+    [A.rootRing, accepted],
+  ];
+  steps.forEach(([el, ok], k) => {
+    const t = at + k * .28;
+    if (el.tagName === "path") {
+      tl.call(() => (el.style.stroke = ok ? "var(--pass)" : "var(--fail)"), null, t);
+    } else {
+      tl.call(() => el.setAttribute("class", ok ? "s-pass" : "s-fail"), null, t).to(el, { opacity: 1, duration: .25 }, t);
+    }
+  });
+  const end = at + steps.length * .28 + 1.8;
+  tl.to(steps.filter(([el]) => el.tagName !== "path").map(([el]) => el), { opacity: 0, duration: .5 }, end)
+    .call(() => steps.forEach(([el]) => el.tagName === "path" && (el.style.stroke = "")), null, end + .5);
+  return end;
+}
+
+function ch4() {
+  const tl = gsap.timeline();
+  const you = A.receipts[YOU];
+  const code = E.checkInclusion(st.batch.batchPv, st.C, you._pv, YOU, st.batch.paths[YOU], st.hashes[YOU]);
+  tl.to(A.vm, { opacity: 0, duration: .4 }, .1)
+    .to(A.panel, { opacity: 1, scale: 1, duration: .5, ease: "power2.out" }, .3)
+    .call(() => (A.panelTitle.textContent = "Your check"), null, .3);
+  sealCompare(tl, .9, rcptPos(YOU), you._pv.slice(0, 32), true);
+  setIcon(tl, A.checks[0], "pass", 2.15);
+  stripCompare(tl, 3.0, rcptPos(YOU), you._pv.slice(32, 64), you._ring, true);
+  setIcon(tl, A.checks[1], "pass", 4.75);
+  pathClimb(tl, 5.4, YOU, true);
+  setIcon(tl, A.checks[2], "pass", 7.9);
+  setIcon(tl, A.badgeIcon, "pass", 8.4);
+  setIcon(tl, A.checks[3], "pass", 8.5);
+  tl.fromTo(you._score, { scale: 1, transformOrigin: "0% 100%" }, { scale: 1.18, duration: .25, yoyo: true, repeat: 1 }, 9.0)
+    .call(() => result(`check_batch_inclusion() → <b class="${code === 0 ? "good" : "bad"}">${code === 0 ? "accepted" : "rejected (" + VERDICT[code] + ")"}</b> · your grade: ${pct(st.scores[YOU].scoreBp)}`), null, 9.0);
+  return tl;
+}
+
+const VERDICT = { 0: "accepted", 1: "Malformed", 2: "CommitmentMismatch", 3: "SheetHashMismatch", 4: "ScoreOutOfRange", 5: "ExamIdMismatch", 6: "NotInBatch" };
+function verdict(code, what) {
+  result(`check_batch_inclusion() → <b class="${code === 0 ? "good" : "bad"}">${VERDICT[code]}</b>${what ? " · " + what : ""}`);
+}
+
+// Ch5 entry: the checking panel resets, tree and results stay.
+function ch5() {
+  const tl = gsap.timeline();
+  tl.to(A.vm, { opacity: 0, duration: .3 }, 0)
+    .to(A.panel, { opacity: 1, scale: 1, duration: .4 }, 0);
+  A.checks.forEach((c) => setIcon(tl, c, "pending", .1));
+  setIcon(tl, A.badgeIcon, "pending", .1);
+  return tl;
+}
+function resetHonest(tl, at) {
+  tl.call(() => { paintBatch(st.batch, st.C); paintKey(KEY); A.panelTitle.textContent = "Your check"; }, null, at);
+  A.checks.forEach((c) => setIcon(tl, c, "pending", at));
+  setIcon(tl, A.badgeIcon, "pending", at);
+  tl.to(A.keycard, { opacity: 0, duration: .3 }, at).to(A.envelope, { opacity: 1, duration: .3 }, at);
+  A.receipts.forEach((g, i) => tl.to(g, { x: COL[i] - 130, y: RCPT_Y, opacity: 1, duration: .4 }, at));
+}
+
+function cheatKey() {
+  const tl = gsap.timeline();
+  resetHonest(tl, 0);
+  // The school edits Q4 after the exam so that your answer counts.
+  const yourQ4 = SHEETS[YOU].answers[3];
+  const target = yourQ4 !== null && !KEY.questions[3].accepted.includes(yourQ4) ? yourQ4 : 1;
+  const forged = structuredClone(KEY);
+  forged.questions[3].accepted = [target];
+  const C2 = E.commit(forged, SALT);
+  const B2 = E.gradeBatch(forged, SALT, SHEETS);
+  const code = E.checkInclusion(B2.batchPv, st.C, B2.reports[YOU], YOU, B2.paths[YOU], st.hashes[YOU]);
+  tl.call(() => { caption(5, "Change the key after the exam", "The school quietly changes the answer to question 4, re-grades everyone and proves it again. Your score goes up."); result(""); }, null, .05)
+    .to(A.envelope, { opacity: 0, duration: .3 }, .2)
+    .fromTo(A.keycard, { x: 1250, y: 30, scale: .7, opacity: 0 }, { opacity: 1, duration: .5 }, .3);
+  const from = A.keyMarks[3][4];
+  const dx = (target - 4) * 42;
+  tl.to(from, { x: dx, duration: .7, ease: "power2.inOut" }, 1.0)
+    .call(() => { paintKey(forged); gsap.set(from, { x: 0 }); }, null, 1.72);
+  // New seal, re-issued results, new root: all from grading-core over the forged key.
+  const stamp = S("g", {}, world);
+  drawSeal(stamp, C2, { r: 58 });
+  gsap.set(stamp, { x: 1292, y: 288, opacity: 0, transformOrigin: "50% 50%" });
+  tl.fromTo(stamp, { opacity: 0, scale: 2.2, rotation: -25 }, { opacity: 1, scale: 1, rotation: -6, duration: .32, ease: "power4.in" }, 2.0)
+    .to(A.receipts, { opacity: .2, duration: .3 }, 2.5)
+    .to([...A.leaves, ...A.nodes, A.root], { opacity: .2, duration: .3 }, 2.5)
+    .call(() => paintBatch(B2, C2), null, 2.85)
+    .to(A.receipts, { opacity: 1, duration: .4 }, 2.9)
+    .to([...A.leaves, ...A.nodes, A.root], { opacity: 1, duration: .4 }, 2.9)
+    .fromTo(A.receipts[YOU]._score, { scale: 1, transformOrigin: "0% 100%" }, { scale: 1.2, duration: .25, yoyo: true, repeat: 1 }, 3.2);
+  sealCompare(tl, 3.9, rcptPos(YOU), C2, code === 0);
+  setIcon(tl, A.checks[0], code === 0 ? "pass" : "fail", 5.2);
+  tl.call(() => verdict(code, `the seal on your result is not the seal posted before the exam`), null, 5.2)
+    .to(stamp, { opacity: 0, duration: .4 }, 7.4).call(() => stamp.remove(), null, 7.9);
+  return tl;
+}
+
+function cheatSwap() {
+  const tl = gsap.timeline();
+  resetHonest(tl, 0);
+  const other = 0;
+  const theirs = st.batch.reports[other];
+  const code = E.checkInclusion(st.batch.batchPv, st.C, theirs, other, st.batch.paths[other], st.hashes[YOU]);
+  tl.call(() => { caption(5, "Give you someone else's result", "You get a genuine, proven result. It just belongs to another candidate."); result(""); }, null, .05);
+  const g = A.receipts[other];
+  const slot = { x: COL[YOU] - 130, y: RCPT_Y - 20 };
+  tl.to(g, { x: slot.x, y: slot.y, duration: .9, ease: "power3.inOut" }, .5)
+    .to(A.receipts[YOU], { opacity: 0, duration: .5 }, .5);
+  setIcon(tl, A.checks[0], "pass", 1.5);
+  stripCompare(tl, 1.6, slot, theirs.slice(32, 64), g._ring, code === 0);
+  setIcon(tl, A.checks[1], code === 0 ? "pass" : "fail", 3.4);
+  tl.call(() => verdict(code, "its fingerprint is not your answer sheet"), null, 3.4)
+    .to(g, { x: COL[other] - 130, y: RCPT_Y, duration: .8, ease: "power3.inOut" }, 6.0)
+    .to(A.receipts[YOU], { opacity: 1, duration: .5 }, 6.2);
+  return tl;
+}
+
+function cheatRaise() {
+  const tl = gsap.timeline();
+  resetHonest(tl, 0);
+  const i = 0;
+  const honest = st.batch.reports[i];
+  const raised = withScore(honest, 10000);
+  const newLeaf = E.leafHash(raised);
+  const code = E.checkInclusion(st.batch.batchPv, st.C, raised, i, st.batch.paths[i], st.hashes[i]);
+  const g = A.receipts[i];
+  tl.call(() => { caption(5, "Raise a published score", `After the proof is made, the results page shows #${SHEETS[i].pseudonym.slice(0, 8)}… with 100% instead of ${pct(readScore(honest).scoreBp)}.`); result(""); A.panelTitle.textContent = "Their check"; }, null, .05);
+  const counter = { v: readScore(honest).scoreBp / 100 };
+  tl.to(counter, { v: 100, duration: 1.0, ease: "power1.in", onUpdate: () => (g._score.textContent = Math.round(counter.v) + "%") }, .6)
+    .call(() => g._score.setAttribute("class", "t-display f-fail"), null, 1.6)
+    .fromTo(g._score, { scale: 1, transformOrigin: "0% 100%" }, { scale: 1.2, duration: .25, yoyo: true, repeat: 1 }, 1.6);
+  // The leaf is recomputed from the edited row, by grading-core's leaf_hash().
+  tl.to(A.leaves[i], { scale: 1.15, duration: .2, yoyo: true, repeat: 1 }, 2.4)
+    .call(() => { A.leaves[i]._txt.textContent = bytesToHex(newLeaf.slice(0, 5)) + "…"; A.leaves[i]._txt.setAttribute("class", "t-mono f-fail"); }, null, 2.5);
+  setIcon(tl, A.checks[0], "pass", 2.9);
+  setIcon(tl, A.checks[1], "pass", 3.1);
+  const end = pathClimb(tl, 3.4, i, code === 0, true);
+  setIcon(tl, A.checks[2], code === 0 ? "pass" : "fail", 5.9);
+  tl.call(() => verdict(code, "that score is not a leaf of the proven sitting"), null, 5.9)
+    .call(() => { g._score.setAttribute("class", "t-display f-graphite"); A.leaves[i]._txt.setAttribute("class", "t-mono f-graphite"); }, null, end + .6);
+  return tl;
+}
+
+// ── player ──
+const TL = { 1: ch1, 2: ch2, 3: ch3, 4: ch4, 5: ch5 };
+let chapter = 1, current = null, token = 0;
+function settle(n) {
+  // Instantly render the end state of chapters before n.
+  home();
+  for (let k = 1; k < n; k++) TL[k]().progress(1, false).kill();
+}
+function play(tl) {
+  current = tl;
+  if (REDUCED) tl.progress(1, false);
+  return tl;
+}
+function go(n, { replay = true } = {}) {
+  token++;
+  if (current) current.kill();
+  chapter = n;
+  settle(n);
+  result("");
+  caption(n);
+  document.querySelectorAll("#chips button").forEach((b) => b.setAttribute("aria-current", +b.dataset.ch === n ? "step" : "false"));
+  document.getElementById("cheats").hidden = n !== 5;
+  document.getElementById("stage").classList.toggle("editable", n === 2 && !FILM);
+  document.querySelectorAll(".cheat").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  document.getElementById("prev").disabled = n === 1;
+  document.getElementById("next").disabled = n === 5;
+  return play(TL[n]());
+}
+async function runCheat(fn, btn) {
+  const my = ++token;
+  if (current) current.progress(1, false).kill();
+  document.querySelectorAll(".cheat").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+  const tl = play(fn());
+  await tl;
+  return my === token;
+}
+
+const wait = (s) => new Promise((r) => gsap.delayedCall(s, r));
+async function playAll() {
+  const my = ++token;
+  for (let n = 1; n <= 5; n++) {
+    window.__seg = "ch" + n;
+    const tl = go(n); token = my;
+    await tl;
+    if (token !== my) return;
+    await wait(n === 2 ? 1.2 : 1.6);
+    if (token !== my) return;
+  }
+  for (const [fn, id] of [[cheatKey, "cheatKey"], [cheatSwap, "cheatSwap"], [cheatRaise, "cheatRaise"]]) {
+    window.__seg = id;
+    const btn = document.getElementById(id);
+    document.querySelectorAll(".cheat").forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+    const tl = play(fn()); current = tl;
+    await tl;
+    if (token !== my) return;
+    await wait(2.4);
+    if (token !== my) return;
+  }
+}
+
+// ── your sheet is editable while the exam is on ──
+function onTap(e) {
+  const b = e.target.closest(".tap");
+  if (!b || chapter !== 2) return;
+  const q = +b.dataset.q, c = +b.dataset.c;
+  const ans = SHEETS[YOU].answers;
+  ans[q] = ans[q] === c ? null : c;
+  compute();
+  const g = A.sheets[YOU];
+  g._marks[q].forEach((m, k) => gsap.set(m, { opacity: ans[q] === k ? 1 : 0 }));
+  if (ans[q] !== null) gsap.fromTo(g._marks[q][c], { scale: 0, transformOrigin: "50% 50%" }, { scale: 1, duration: .25, ease: "back.out(2)" });
+  clear(g._strip);
+  const s = drawStrip(g._strip, st.hashes[YOU], { x: 10, y: 52, h: 248, w: 24 });
+  gsap.fromTo(s._bars, { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: .15, stagger: .01 });
+  result(`hash_answer_sheet() → ${short(st.hashes[YOU], 6)} · a single changed mark changes the whole fingerprint`);
+}
+
+// ── boot ──
+async function boot() {
+  const badge = document.getElementById("engine");
+  let ex, how;
+  try {
+    const bin = Uint8Array.from(atob(WASM_B64), (ch) => ch.charCodeAt(0));
+    ex = (await WebAssembly.instantiate(bin, {})).instance.exports;
+    how = "WebAssembly";
+  } catch (err) {
+    ex = window.QWASM2JS;
+    how = "JavaScript (wasm2js)";
+  }
+  try {
+    E = makeEngine(ex);
+    compute();
+  } catch (err) {
+    badge.classList.add("err");
+    badge.lastChild.textContent = "grading-core failed to load";
+    throw err;
+  }
+  badge.classList.add("on");
+  badge.lastChild.textContent = `grading-core live · Rust → ${how}`;
+
+  buildBoard(); buildSchool(); buildKeyCard(); buildSalt(); buildEnvelope();
+  buildSheets(); buildTree(); buildVm(); buildReceipts(); buildPanel();
+  world.insertBefore(A.envelope, A.keycard); world.appendChild(A.salt); world.appendChild(A.keycard);
+
+  document.getElementById("chips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) go(+b.dataset.ch); });
+  document.getElementById("prev").addEventListener("click", () => chapter > 1 && go(chapter - 1));
+  document.getElementById("next").addEventListener("click", () => chapter < 5 && go(chapter + 1));
+  document.getElementById("replay").addEventListener("click", () => go(chapter));
+  document.getElementById("playAll").addEventListener("click", () => playAll());
+  document.getElementById("cheatKey").addEventListener("click", (e) => runCheat(cheatKey, e.currentTarget));
+  document.getElementById("cheatSwap").addEventListener("click", (e) => runCheat(cheatSwap, e.currentTarget));
+  document.getElementById("cheatRaise").addEventListener("click", (e) => runCheat(cheatRaise, e.currentTarget));
+  const stage = document.getElementById("stage");
+  stage.addEventListener("click", onTap);
+  stage.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".tap")) { e.preventDefault(); onTap(e); } });
+
+  if (FILM) {
+    window.__film = film;
+    window.__ready = true;
+    go(1).pause(0);
+  } else {
+    const tl = go(1);
+    tl.pause(0);
+    gsap.delayedCall(REDUCED ? 0 : .8, () => tl.play());
+  }
+}
+
+async function film() {
+  const title = document.getElementById("titleCard"), end = document.getElementById("endCard");
+  window.__seg = "title";
+  gsap.set(title, { opacity: 1 });
+  await wait(2.6);
+  await gsap.to(title, { opacity: 0, duration: .6 });
+  await playAll();
+  window.__seg = "end";
+  await wait(.6);
+  await gsap.to(end, { opacity: 1, duration: .7 });
+  await wait(3.2);
+  window.__done = true;
+}
+
+boot();
+})();
+</script>
