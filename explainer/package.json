@@ -1,0 +1,16 @@
+{
+  "name": "quaestor-explainer",
+  "private": true,
+  "type": "module",
+  "description": "Animated walkthrough of quaestor, running grading-core in the browser; source of the README animations",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node capture.mjs check",
+    "film": "node capture.mjs film",
+    "encode": "node encode.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
