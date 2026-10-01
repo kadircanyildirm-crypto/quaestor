@@ -153,6 +153,29 @@ statement, with public values `(C, H, R)`.
 
 The full design and trust model are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Benchmarks
+
+zkVM cycle counts for the batch guest grading a 100-question exam. A cycle
+count measures how much work the guest performs. Within one SP1 shard
+configuration, proving time grows roughly linearly with it.
+
+| Candidates | Total cycles | Cycles per candidate |
+|---:|---:|---:|
+| 1 | 248,862 | 248,862 |
+| 10 | 609,370 | 60,937 |
+| 100 | 4,193,494 | 41,934 |
+| 200 | 8,174,020 | 40,870 |
+| 400 | 16,134,045 | 40,335 |
+
+For n ≥ 100, the cost fits `cycles ≈ 214,000 + 39,800 × n`. A whole sitting graded
+in one execution therefore costs 6.25× less work per candidate than one proof per
+sheet (39,800 against 248,862 cycles), and it produces one proof instead of n.
+
+Proving time, proof size and verification time are not measured yet; they
+require a real SP1 proof (see [Status](#status)). Measured with SP1 6.3.1 on an
+Intel Core i5-12450H. Method and reproduction steps are in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
 ## Status
 
 | Component | State |
