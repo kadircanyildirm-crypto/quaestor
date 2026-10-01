@@ -351,6 +351,14 @@ institution's website or any append-only transparency log.
 A *quaestor* was the Roman magistrate responsible for auditing the public
 accounts. The word comes from *quaestio*, "an inquiry".
 
+## Contact
+
+Kadir Can Yildirim · [kadir.can.yildirm@gmail.com](mailto:kadir.can.yildirm@gmail.com) ·
+[@kadircanyildirm-crypto](https://github.com/kadircanyildirm-crypto)
+
+Questions, research collaboration, pilots with a course or an exam body, and
+commercial licensing are all welcome.
+
 ## License
 
 Copyright © 2026 Kadir Can Yildirim.
@@ -362,8 +370,8 @@ modified version you distribute, or run as a network service for others, is
 released under the same license with its complete source code.
 
 If those terms do not fit your use, for example a closed-source product or
-service, a commercial license is available from the author. Open an issue or
-contact [@kadircanyildirm-crypto](https://github.com/kadircanyildirm-crypto).
+service, a commercial license is available from the author (see
+[Contact](#contact)).
 
 Versions up to and including commit
 [`dd84bb4`](https://github.com/kadircanyildirm-crypto/quaestor/commit/dd84bb4)
