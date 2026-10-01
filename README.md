@@ -10,6 +10,110 @@ together with a zero-knowledge proof that the score was computed from (a) the
 committed key and (b) the student's actual answers — **without revealing the
 answer key**.
 
+## See it work
+
+Seven short animations, in order. They are rendered from an in-browser
+explainer that runs this repo's `grading-core` compiled to WebAssembly, so every
+seal, fingerprint, grade, Merkle path and verdict in them is computed by the
+real code. The one thing drawn rather than computed is the SP1 proof itself
+(see [Status](#status)).
+
+Hashes are drawn as pictures. A seal's petals and dots are the 32 bytes of a
+commitment, and the timing marks along the edge of a sheet are the 32 bytes of
+its hash. Equal hashes give identical pictures; change one input and the picture
+changes completely. The exam is the repo's demo exam
+([`examples/demo-exam`](examples/demo-exam)): five questions, question 3
+accepts two answers after an appeal, question 5 is cancelled, and the sitting
+uses all four sample sheets.
+
+### 1. Before the exam: the school seals its answer key
+
+![The answer key and a secret salt are sealed in an envelope; only the seal is posted on the public notice board](docs/media/1-seal.gif)
+
+**What it shows:** The answer key and a secret 32-byte salt go into an
+envelope. Only the seal is posted on the public notice board; the key stays
+with the school.
+
+**What runs underneath:** `commit_answer_key(key, salt)`, which is SHA-256 over
+the key's canonical encoding and the salt. The salt stops anyone guessing the
+key from the seal. The hash stops the school changing the key later without
+changing the seal. Demo seal: `d4f3126b…5c9bd51d0c`.
+
+### 2. The exam
+
+![Four candidates fill in their bubble sheets; each sheet gets a fingerprint along its edge](docs/media/2-exam.gif)
+
+**What it shows:** Four candidates mark their sheets, and each sheet gets a
+fingerprint.
+
+**What runs underneath:** `hash_answer_sheet(sheet)`, which is SHA-256 over the
+candidate's pseudonym and answers in canonical form. Candidates are identified
+by a 32-byte pseudonym, never by name. This hash is what later ties a result to
+one candidate's actual answers.
+
+### 3. Grading, proven
+
+![The sealed key and the sheets go into the SP1 zkVM; results, a Merkle tree and one proof come out](docs/media/3-prove.gif)
+
+**What it shows:** The sealed key and every sheet go into the zkVM. Out come
+everyone's results, a Merkle tree over them, and one proof for the whole
+sitting.
+
+**What runs underneath:** The batch guest (`zk/program-batch`) runs
+`grade_batch(key, salt, sheets)` inside SP1. It checks the key and computes its
+seal once, scores every sheet, hashes each result into a leaf, and builds a
+Merkle root bound to the number of candidates. The guest publishes only 76
+bytes: the seal, the root, the exam id and the candidate count. Measured cost on a
+100-question exam: about 214,000 + 39,800 × n zkVM cycles
+([BENCHMARKS](docs/BENCHMARKS.md)).
+
+### 4. Your check
+
+![The seal on your result is matched to the posted seal, your answers to the fingerprint, and your row is walked up to the proven root](docs/media/4-check.gif)
+
+**What it shows:** The seal on your result is matched against the posted seal,
+your own copy of your answers against the fingerprint on your result, and your
+row is walked up the tree to the proven root.
+
+**What runs underneath:** `check_batch_inclusion(public_values,
+posted_seal, your_result, your_path, your_sheet_hash)`. It needs no zkVM and
+costs a few dozen hashes, so it runs anywhere. In the CLI,
+`quaestor-cli verify-batch` runs it right after SP1 has verified the proof.
+
+### 5. Forgery: change the key after the exam
+
+![The school edits question 4 on the key, re-grades and re-proves; the new seal does not match the posted one and the result is rejected](docs/media/5-cheat-key.gif)
+
+**What it shows:** After the exam the school changes the answer to question 4,
+re-grades everyone and proves it again. Your score rises to 100%, and the new
+proof is valid.
+
+**What runs underneath:** The edited key has a different seal
+(`b361aaa4…`), so `check_batch_inclusion` returns `CommitmentMismatch`. The
+proof is about a key that was never posted.
+
+### 6. Forgery: someone else's result
+
+![A genuine result belonging to another candidate is handed to you; its fingerprint does not match your answers](docs/media/6-cheat-swap.gif)
+
+**What it shows:** You are handed a genuine, proven result that belongs to
+another candidate.
+
+**What runs underneath:** The fingerprint on that result is not the hash of
+your answers, so `check_batch_inclusion` returns `SheetHashMismatch`.
+
+### 7. Forgery: raise a published score
+
+![After proving, a 60% result is shown as 100%; its leaf changes and no longer reaches the proven root](docs/media/7-cheat-raise.gif)
+
+**What it shows:** After the proof is made, the results page shows a 60%
+candidate as 100%.
+
+**What runs underneath:** The edited result hashes to a different leaf
+(`8a02095a…` becomes `8ae3296e…`), and its path no longer reaches the proven
+root, so `check_batch_inclusion` returns `NotInBatch`. The score was published
+but never proven.
+
 ## The problem
 
 When a student appeals a grade today, the institution's answer is "the system
