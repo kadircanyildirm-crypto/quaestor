@@ -23,9 +23,10 @@ score published for them is the score that was proven.
 
 The animations follow one exam from commitment to verification, then show
 three forgeries being rejected. They are rendered from a WebAssembly build of
-`grading-core` running on [`examples/demo-exam`](examples/demo-exam), so every
-hash, score, Merkle path and verdict on screen is real output of this code. The
-SP1 proof itself is illustrated, not generated.
+`grading-core` ([`crates/grading-wasm`](crates/grading-wasm)) running on
+[`examples/demo-exam`](examples/demo-exam), so every hash, score, Merkle path
+and verdict on screen is real output of this code. The SP1 proof itself is
+illustrated, not generated.
 
 Commitments are drawn as seals: the 16 rays and 16 dots encode the 32 bytes of
 the digest. Sheet hashes are drawn as the timing marks along a sheet's edge.
@@ -155,9 +156,17 @@ The full design and trust model are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 
 ## Benchmarks
 
-zkVM cycle counts for the batch guest grading a 100-question exam. A cycle
-count measures how much work the guest performs. Within one SP1 shard
-configuration, proving time grows roughly linearly with it.
+Two costs decide whether verifiable grading is practical: the work the
+institution proves once per sitting, and the work each candidate does to check
+their own result. Both are measured below. What is not measured yet is listed at
+the end of this section.
+
+### Proving: one proof per sitting
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/bench-proving-dark.svg">
+  <img alt="zkVM cycles per candidate fall from 248,862 for a single candidate to 40,335 at 400 candidates, while one proof per sheet stays at 248,862" src="docs/media/bench-proving-light.svg">
+</picture>
 
 | Candidates | Total cycles | Cycles per candidate |
 |---:|---:|---:|
@@ -167,14 +176,105 @@ configuration, proving time grows roughly linearly with it.
 | 200 | 8,174,020 | 40,870 |
 | 400 | 16,134,045 | 40,335 |
 
-For n ≥ 100, the cost fits `cycles ≈ 214,000 + 39,800 × n`. A whole sitting graded
-in one execution therefore costs 6.25× less work per candidate than one proof per
-sheet (39,800 against 248,862 cycles), and it produces one proof instead of n.
+A cycle is one instruction executed by the zkVM. It is the unit SP1 proves, so
+within one shard configuration proving time grows roughly linearly with it.
 
-Proving time, proof size and verification time are not measured yet; they
-require a real SP1 proof (see [Status](#status)). Measured with SP1 6.3.1 on an
-Intel Core i5-12450H. Method and reproduction steps are in
-[docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+- **A fixed cost of about 214,000 cycles per sitting.** Validating the key,
+  encoding it canonically and hashing its commitment do not depend on the
+  sheets. One proof per sheet pays this cost for every candidate; a sitting proof
+  pays it once.
+- **A flat marginal cost of 39,800 cycles per candidate.** It is consistent to
+  within 0.6% across every interval measured, so the total grows linearly:
+  `cycles ≈ 214,000 + 39,800 × n`. At 400 candidates a sitting proof does 6.2×
+  less work per candidate than per-sheet proofs, and the ratio approaches 6.25×.
+- **Hashing, not grading, dominates.** Raising the exam from 5 to 100 questions
+  (20× more grading work) raised the per-candidate cost by only about 33%. The
+  guests use software SHA-256, so SP1's SHA-256 precompiles are the most
+  promising next optimisation.
+
+### At exam scale
+
+Projected from the fit above. SP1 proves execution in shards of 2²⁴ cycles,
+which holds about 416 candidates.
+
+| Sitting | zkVM cycles | SP1 shards |
+|---:|---:|---:|
+| 1,000 | 40.0 M | 3 |
+| 10,000 | 398 M | 24 |
+| 100,000 | 3.98 G | 238 |
+| 1,000,000 | 39.8 G | 2,378 |
+
+Shards are proven one after another, so memory stays flat as the sitting grows
+and only proving time increases. A machine that can prove a 1,000-candidate
+sitting can prove a national one, given proportionally more time.
+
+### Checking: what each candidate does
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/bench-checking-dark.svg">
+  <img alt="Time to check one result grows from 4.8 to 15.2 microseconds in WebAssembly and from 1.3 to 3.2 microseconds natively as the sitting grows from 10 to one million candidates" src="docs/media/bench-checking-light.svg">
+</picture>
+
+| Candidates | Inclusion path | Data per candidate | Native x86-64 | WebAssembly (V8) |
+|---:|---:|---:|---:|---:|
+| 10 | 4 hashes | 220 B | 1.3 µs | 4.8 µs |
+| 100 | 7 hashes | 316 B | 1.7 µs | 6.7 µs |
+| 1,000 | 10 hashes | 412 B | 2.0 µs | 8.8 µs |
+| 10,000 | 14 hashes | 540 B | 2.5 µs | 11.2 µs |
+| 100,000 | 17 hashes | 636 B | 2.9 µs | 13.2 µs |
+| 1,000,000 | 20 hashes | 732 B | 3.2 µs | 15.2 µs |
+
+- **The timed work is the candidate's complete claim check:** hashing their own
+  answer sheet, then running `check_batch_inclusion` on their row.
+- **Cost grows with log₂ n, not n.** Each doubling of the sitting adds one
+  32-byte hash to the inclusion path. In a sitting of a million candidates, a
+  candidate needs their 92-byte report and 20 hashes, which is under 1 KB, and
+  the check takes 15 µs in a browser engine.
+- **Publishing is cheap too.** Re-grading a million-sheet sitting natively to
+  build the results list takes 1.3 s.
+- These times exclude verifying the SP1 proof itself, which comes first and has
+  not been measured yet.
+
+### Not measured yet
+
+- Proving time and proof size, on CPU and GPU. SP1 6.3.1 needs at least 24 GB of
+  memory; see [Status](#status).
+- Verification of the SP1 proof, natively and in a browser.
+- Cycle counts with SP1's SHA-256 precompiles enabled.
+
+<details>
+<summary><b>Method and reproduction</b></summary>
+
+**Proving.** zkVM execution without proving (`quaestor-cli execute-batch`) under
+SP1 6.3.1, on an Intel Core i5-12450H, 2026-07-27. Inputs come from
+`bench/generate-sitting.py` with fixed seeds and a fixed key: 100 questions,
+5 choices, one cancelled question, and every 17th question with two accepted
+answers.
+
+**Checking.** The same exam shape, graded with `grade_batch` at 10 to 1,000,000
+candidates; the middle candidate's row is checked. Each figure is the median of
+15 rounds of 20,000 checks, with rounds interleaved across sittings so that
+clock drift affects every size equally. Native: Rust 1.96, `--release`.
+WebAssembly: [`crates/grading-wasm`](crates/grading-wasm) on Node.js 26
+(V8 14.6). Same machine, 2026-10-01.
+
+```sh
+# proving work (zkVM cycles)
+python bench/generate-sitting.py 1 10 100 200 400
+docker run --rm -v "$PWD":/work   -v quaestor-cargo-registry:/usr/local/cargo/registry -v quaestor-sp1:/root/.sp1   -w /work rust:1 bash bench/cycles.sh 1 10 100 200 400
+
+# checking cost
+cargo run --release -p grading-core --example verify_cost -- --fixtures bench/out/verify-fixtures.json
+(cd crates/grading-wasm && cargo build --release --target wasm32-unknown-unknown)
+node bench/verify-wasm.mjs
+
+# charts
+python bench/plot.py
+```
+
+The full analysis is in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+</details>
 
 ## Status
 
@@ -221,11 +321,12 @@ quaestor-cli verify-batch --proof batch.bin --manifest sitting.json \
 
 ```text
 crates/grading-core/   grading engine: model, encodings, commitments, scoring, batching, public values
+crates/grading-wasm/   WebAssembly bindings for grading-core (browser explainer, checking benchmark)
 zk/program/            SP1 guest for a single answer sheet
 zk/program-batch/      SP1 guest for a whole sitting
 zk/script/             quaestor-cli: execute, prove and verify, per sheet and per sitting
 examples/demo-exam/    demo answer key and answer sheets
-bench/                 cycle-count benchmark scripts
+bench/                 benchmark scripts and chart generator
 docs/                  architecture, benchmarks and roadmap
 ```
 

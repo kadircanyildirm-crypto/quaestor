@@ -1,5 +1,6 @@
 /target
 zk/*/target
+crates/*/target
 **/*.rs.bk
 Cargo.lock.orig
 .DS_Store

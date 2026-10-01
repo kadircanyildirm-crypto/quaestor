@@ -127,10 +127,52 @@ measurement, and it has to be gated on producing byte-identical commitments,
 since a hash that disagrees with the published one changes the meaning of every
 commitment ever issued.
 
+## Checking cost (candidate side)
+
+What a candidate does with the published results, timed directly: hash their
+own answer sheet, then run `check_batch_inclusion` on their row. Unlike the cycle
+counts above, these are wall-clock times on the host, natively and in
+WebAssembly. Verifying the SP1 proof itself comes first and is not included; it
+needs a real proof.
+
+| Candidates | Inclusion path | Data per candidate | Native x86-64 | WebAssembly (V8) |
+|---:|---:|---:|---:|---:|
+| 10 | 4 hashes | 220 B | 1.3 µs | 4.8 µs |
+| 100 | 7 hashes | 316 B | 1.7 µs | 6.7 µs |
+| 1,000 | 10 hashes | 412 B | 2.0 µs | 8.8 µs |
+| 10,000 | 14 hashes | 540 B | 2.5 µs | 11.2 µs |
+| 100,000 | 17 hashes | 636 B | 2.9 µs | 13.2 µs |
+| 1,000,000 | 20 hashes | 732 B | 3.2 µs | 15.2 µs |
+
+"Data per candidate" is the 92-byte report plus 32 bytes per sibling hash on the
+inclusion path, which is what the results list must deliver to each candidate
+beside the proof. Both it and the check time grow with log₂ n: about 0.6 µs
+and 32 bytes per doubling in WebAssembly. Grading a million-sheet sitting
+natively with `grade_batch`, which the institution does to publish the results
+list, took 1.3 s.
+
+**Method.** The exam has the same shape as the cycle benchmark (100 questions,
+five choices, one cancelled, every 17th with two accepted answers), generated
+deterministically in `crates/grading-core/examples/verify_cost.rs`. The middle
+candidate of each sitting is checked. Each figure is the median of 15 rounds of
+20,000 checks, with rounds interleaved across sittings. Interleaving matters on
+this CPU. Timed one sitting after another, the WebAssembly run showed a 2× jump
+between 10,000 and 100,000 candidates that path length cannot explain: over a
+long run, the hybrid i5-12450H shifts clock speed and moves work between core
+types. WebAssembly runs `crates/grading-wasm` on Node.js 26.7 (V8 14.6), the
+engine family Chrome uses. Native runs Rust 1.96 with `--release`. Same machine,
+2026-10-01.
+
+```sh
+cargo run --release -p grading-core --example verify_cost -- --fixtures bench/out/verify-fixtures.json
+(cd crates/grading-wasm && cargo build --release --target wasm32-unknown-unknown)
+node bench/verify-wasm.mjs
+```
+
 ## Still missing
 
 - Proving time, proof size, verification time — needs a 32 GB machine
 - The same curve with hashing precompiles enabled
 - GPU (`SP1_PROVER=cuda`) figures
-- Verification cost in a browser, which is the number a candidate actually cares
-  about
+- Verification of the SP1 proof itself in a browser. The candidate-side claim
+  check that follows it is measured above.
