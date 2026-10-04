@@ -27,7 +27,7 @@ page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 page.on("pageerror", (e) => errors.push(e.message));
 
 await page.goto(url);
-await page.waitForFunction(() => window.__ready === true, null, { timeout: 30000 });
+await page.waitForFunction(() => window.__ready === true, null, { timeout: 90000 });
 await page.evaluate(() => document.fonts.ready);
 const t0 = await page.evaluate(() => {
   gsap.ticker.remove(gsap.updateRoot);

@@ -16,8 +16,8 @@ import os
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "media")
 
 # candidates -> zkVM cycles per candidate, batch guest, 100-question exam, SP1 6.3.1
-PROVING = [(1, 248_862), (10, 60_937), (100, 41_934), (200, 40_870), (400, 40_335)]
-PER_SHEET = 248_862  # one proof per sheet pays the whole fixed cost every time
+PROVING = [(1, 249_323), (10, 61_389), (100, 42_381), (200, 41_316), (400, 40_781)]
+PER_SHEET = 249_323  # one proof per sheet pays the whole fixed cost every time
 
 # candidates -> microseconds to hash your sheet and run check_batch_inclusion
 CHECK_NATIVE = [(10, 1.3), (100, 1.7), (1_000, 2.0), (10_000, 2.5), (100_000, 2.9), (1_000_000, 3.2)]

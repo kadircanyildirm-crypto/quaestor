@@ -35,9 +35,13 @@ function checkRow(pSheet, sheetLen, pHash, pPv, pC, pR, index, pSib, nSib) {
 // clocks, a hybrid CPU moving the thread to an efficiency core) lands on every
 // sitting alike instead of on whichever comes last.
 const rows = fixtures.map((f) => {
-  const sheet = new Uint8Array(32 + f.answers.length);
-  sheet.set(hex(f.pseudonym), 0);
-  f.answers.forEach((a, i) => (sheet[32 + i] = a === null ? 0xff : a));
+  // grading-wasm sheet format: [exam_id u64][pseudonym][n u32][answers], little-endian
+  const sheet = new Uint8Array(8 + 32 + 4 + f.answers.length);
+  const view = new DataView(sheet.buffer);
+  view.setBigUint64(0, BigInt(f.exam_id), true);
+  sheet.set(hex(f.pseudonym), 8);
+  view.setUint32(40, f.answers.length, true);
+  f.answers.forEach((a, i) => (sheet[44 + i] = a === null ? 0xff : a));
   const siblings = new Uint8Array(32 * f.siblings.length);
   f.siblings.forEach((s, i) => siblings.set(hex(s), 32 * i));
   const row = {

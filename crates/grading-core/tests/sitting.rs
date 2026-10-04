@@ -411,6 +411,41 @@ fn a_candidate_from_another_exam_cannot_be_folded_into_the_sitting() {
     );
 }
 
+/// A second sheet under a real candidate's pseudonym would put two proven
+/// results for one person into the sitting. The candidate's own check finds
+/// their row by sheet hash, so it would pass on their honest row and never see
+/// the other; the sitting itself has to refuse to be graded.
+#[test]
+fn a_candidate_cannot_sit_twice() {
+    let mut sheets = candidates();
+    // A fabricated sheet for the 60% candidate, with every answer right.
+    sheets.push(sheet(0xB2, vec![Some(2), Some(0), Some(3), Some(4), None]));
+
+    let err = grade_batch(&sitting_key(), &SALT, &sheets).unwrap_err();
+    assert_eq!(
+        err,
+        BatchGradeError::DuplicateCandidate {
+            first: 1,
+            second: 3
+        }
+    );
+}
+
+#[test]
+fn the_same_sheet_submitted_twice_is_refused_too() {
+    let mut sheets = candidates();
+    sheets.insert(1, sheets[0].clone());
+
+    let err = grade_batch(&sitting_key(), &SALT, &sheets).unwrap_err();
+    assert_eq!(
+        err,
+        BatchGradeError::DuplicateCandidate {
+            first: 0,
+            second: 1
+        }
+    );
+}
+
 /// Sheet order is leaf order: re-grading a sitting with the candidates shuffled
 /// produces a different root, so a host that reproduces a manifest must feed the
 /// sheets in the published order.

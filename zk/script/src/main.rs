@@ -79,17 +79,25 @@ struct SheetFile {
 }
 
 const USAGE: &str = "usage:\n  \
-     quaestor-cli execute       --key <f> --salt <64-hex> --sheet <f>\n  \
-     quaestor-cli prove         --key <f> --salt <64-hex> --sheet <f> [--out proof.bin] [--mode <m>]\n  \
+     quaestor-cli new-salt      --out <f>\n  \
+     quaestor-cli commit        --key <f> <salt>\n  \
+     quaestor-cli execute       --key <f> <salt> --sheet <f>\n  \
+     quaestor-cli prove         --key <f> <salt> --sheet <f> [--out proof.bin] [--mode <m>]\n  \
      quaestor-cli verify        --proof <f> --commitment <64-hex> [--sheet <f>]\n  \
-     quaestor-cli execute-batch --key <f> --salt <64-hex> (--sheet <f>).. [--sheets <dir>]\n  \
-     quaestor-cli prove-batch   --key <f> --salt <64-hex> (--sheet <f>).. [--sheets <dir>]\n                             \
+     quaestor-cli execute-batch --key <f> <salt> (--sheet <f>).. [--sheets <dir>]\n  \
+     quaestor-cli prove-batch   --key <f> <salt> (--sheet <f>).. [--sheets <dir>]\n                             \
        [--out batch.bin] [--manifest sitting.json] [--mode <m>]\n  \
-     quaestor-cli verify-batch  --proof <f> --manifest <f> --commitment <64-hex> [--sheet <f>]";
+     quaestor-cli verify-batch  --proof <f> --manifest <f> --commitment <64-hex> [--sheet <f>]\n\
+     \n\
+     <salt> is --salt-file <f> (a file holding 64 hex characters, as written by\n\
+     new-salt) or --salt <64-hex>. Prefer the file: a value on the command line is\n\
+     visible to other users of the machine and is kept in shell history.";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
+        Some("new-salt") => new_salt(&args),
+        Some("commit") => commit(&args),
         Some("execute") => run(&args, Mode::Execute),
         Some("prove") => run(&args, Mode::Prove),
         Some("verify") => verify(&args),
@@ -116,7 +124,7 @@ enum Mode {
 
 fn run(args: &[String], mode: Mode) -> Result<(), String> {
     let key = load_key(&flag(args, "--key")?)?;
-    let salt = parse_hex32(&flag(args, "--salt")?, "salt")?;
+    let salt = read_salt(args)?;
     let sheet = load_sheet(&flag(args, "--sheet")?)?;
 
     let expected_commitment = commit_answer_key(&key, &salt);
@@ -322,7 +330,7 @@ fn build_manifest(
 
 fn run_batch(args: &[String], mode: Mode) -> Result<(), String> {
     let key = load_key(&flag(args, "--key")?)?;
-    let salt = parse_hex32(&flag(args, "--salt")?, "salt")?;
+    let salt = read_salt(args)?;
     let sheets = load_sitting(args)?;
 
     // Grade the sitting here as well as in the guest. Not redundancy: the host
@@ -722,6 +730,58 @@ fn load_sitting(args: &[String]) -> Result<Vec<(String, AnswerSheet)>, String> {
         .into_iter()
         .map(|p| load_sheet(&p).map(|s| (p, s)))
         .collect()
+}
+
+/// Before the exam, step one: 32 random bytes from the operating system, hex
+/// encoded, in a new file readable only by its owner. Refuses to overwrite: a
+/// replaced salt would orphan a commitment that may already be published.
+fn new_salt(args: &[String]) -> Result<(), String> {
+    use std::io::{Read, Write};
+    let out = flag(args, "--out")?;
+    let mut salt = [0u8; 32];
+    fs::File::open("/dev/urandom")
+        .and_then(|mut f| f.read_exact(&mut salt))
+        .map_err(|e| format!("reading /dev/urandom: {e}"))?;
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    let mut file = options
+        .open(&out)
+        .map_err(|e| format!("creating {out} (an existing salt is never overwritten): {e}"))?;
+    writeln!(file, "{}", hex::encode(salt)).map_err(|e| format!("writing {out}: {e}"))?;
+    println!("salt written   : {out} (keep it secret; it is needed to prove)");
+    Ok(())
+}
+
+/// Before the exam, step two: the commitment to publish. Needs no answer
+/// sheets and no zkVM, only the key and the salt.
+fn commit(args: &[String]) -> Result<(), String> {
+    let key = load_key(&flag(args, "--key")?)?;
+    grading_core::validate_key(&key).map_err(|e| format!("the answer key is malformed: {e:?}"))?;
+    let salt = read_salt(args)?;
+    println!("exam id        : {}", key.exam_id);
+    println!("questions      : {}", key.entries.len());
+    println!(
+        "key commitment : {}",
+        hex::encode(commit_answer_key(&key, &salt))
+    );
+    Ok(())
+}
+
+/// The salt, from `--salt-file <f>` or `--salt <64-hex>`. The file is
+/// preferred: a command-line value is visible to other users through the
+/// process list and is kept in shell history.
+fn read_salt(args: &[String]) -> Result<[u8; 32], String> {
+    match (flag(args, "--salt-file"), flag(args, "--salt")) {
+        (Ok(_), Ok(_)) => Err("give --salt-file or --salt, not both".into()),
+        (Ok(path), Err(_)) => {
+            let text = fs::read_to_string(&path).map_err(|e| format!("reading {path}: {e}"))?;
+            parse_hex32(text.trim(), "salt")
+        }
+        (Err(_), Ok(hex)) => parse_hex32(&hex, "salt"),
+        (Err(_), Err(_)) => Err("missing --salt-file <f> (or --salt <64-hex>)".into()),
+    }
 }
 
 fn parse_hex32(s: &str, what: &str) -> Result<[u8; 32], String> {

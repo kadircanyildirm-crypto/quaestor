@@ -61,9 +61,10 @@ the full-credit policy.
 The batch guest (`zk/program-batch`) runs `grade_batch(K, s, sheets)` inside
 SP1. The key is validated and committed once per sitting. Each sheet is scored,
 each report is hashed into a Merkle leaf, and the root is bound to the number of
-candidates. The guest commits 76 bytes of public values (`C`, the root, the
-exam id and the candidate count), so one proof covers the whole sitting.
-Measured cost on a 100-question exam is about 214,000 + 39,800 × n zkVM cycles
+candidates. It also refuses a sitting in which any pseudonym appears twice.
+The guest commits 76 bytes of public values (`C`, the root, the exam id and the
+candidate count), so one proof covers the whole sitting. Measured cost on a
+100-question exam is about 213,000 + 40,250 × n zkVM cycles
 ([benchmarks](docs/BENCHMARKS.md)).
 
 ### 4. Verification
@@ -141,6 +142,9 @@ statement, with public values `(C, H, R)`.
 - The answer key used is the one committed before the exam.
 - Each report was computed from the answer sheet with hash `H`, so a candidate
   can detect substitution of their answers.
+- No candidate appears twice in a sitting. A second sheet under a real
+  candidate's pseudonym makes the sitting impossible to prove, so the
+  institution cannot hold two proven results for one person.
 
 ### What it does not establish
 
@@ -166,28 +170,29 @@ the end of this section.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/bench-proving-dark.svg">
-  <img alt="zkVM cycles per candidate fall from 248,862 for a single candidate to 40,335 at 400 candidates, while one proof per sheet stays at 248,862" src="docs/media/bench-proving-light.svg">
+  <img alt="zkVM cycles per candidate fall from 249,323 for a single candidate to 40,781 at 400 candidates, while one proof per sheet stays at 249,323" src="docs/media/bench-proving-light.svg">
 </picture>
 
 | Candidates | Total cycles | Cycles per candidate |
 |---:|---:|---:|
-| 1 | 248,862 | 248,862 |
-| 10 | 609,370 | 60,937 |
-| 100 | 4,193,494 | 41,934 |
-| 200 | 8,174,020 | 40,870 |
-| 400 | 16,134,045 | 40,335 |
+| 1 | 249,323 | 249,323 |
+| 10 | 613,899 | 61,389 |
+| 100 | 4,238,149 | 42,381 |
+| 200 | 8,263,275 | 41,316 |
+| 400 | 16,312,486 | 40,781 |
 
 A cycle is one instruction executed by the zkVM. It is the unit SP1 proves, so
 within one shard configuration proving time grows roughly linearly with it.
 
-- **A fixed cost of about 214,000 cycles per sitting.** Validating the key,
+- **A fixed cost of about 213,000 cycles per sitting.** Validating the key,
   encoding it canonically and hashing its commitment do not depend on the
   sheets. One proof per sheet pays this cost for every candidate; a sitting proof
   pays it once.
-- **A flat marginal cost of 39,800 cycles per candidate.** It is consistent to
-  within 0.6% across every interval measured, so the total grows linearly:
-  `cycles ≈ 214,000 + 39,800 × n`. At 400 candidates a sitting proof does 6.2×
-  less work per candidate than per-sheet proofs, and the ratio approaches 6.25×.
+- **A flat marginal cost of 40,250 cycles per candidate.** It is consistent to
+  within 0.7% across every interval measured, so the total grows linearly:
+  `cycles ≈ 213,000 + 40,250 × n`. At 400 candidates a sitting proof does 6.1×
+  less work per candidate than per-sheet proofs, and the ratio approaches 6.2×.
+  About 1% of it is the check that no pseudonym appears twice.
 - **Hashing, not grading, dominates.** Raising the exam from 5 to 100 questions
   (20× more grading work) raised the per-candidate cost by only about 33%. The
   guests use software SHA-256, so SP1's SHA-256 precompiles are the most
@@ -200,14 +205,16 @@ which holds about 416 candidates.
 
 | Sitting | zkVM cycles | SP1 shards |
 |---:|---:|---:|
-| 1,000 | 40.0 M | 3 |
-| 10,000 | 398 M | 24 |
-| 100,000 | 3.98 G | 238 |
-| 1,000,000 | 39.8 G | 2,378 |
+| 1,000 | 40.5 M | 3 |
+| 10,000 | 403 M | 25 |
+| 100,000 | 4.03 G | 240 |
+| 1,000,000 | 40.2 G | 2,399 |
 
 Shards are proven one after another, so memory stays flat as the sitting grows
 and only proving time increases. A machine that can prove a 1,000-candidate
-sitting can prove a national one, given proportionally more time.
+sitting can prove a national one, given proportionally more time. One sitting
+holds at most 2²⁰ (1,048,576) candidates; a larger exam is graded as several
+sittings, for example one per exam centre, each with its own proof.
 
 ### Checking: what each candidate does
 
@@ -232,7 +239,7 @@ sitting can prove a national one, given proportionally more time.
   candidate needs their 92-byte report and 20 hashes, which is under 1 KB, and
   the check takes 15 µs in a browser engine.
 - **Publishing is cheap too.** Re-grading a million-sheet sitting natively to
-  build the results list takes 1.3 s.
+  build the results list takes 1.4 s.
 - These times exclude verifying the SP1 proof itself, which comes first and has
   not been measured yet.
 
@@ -283,7 +290,7 @@ The full analysis is in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 |---|---|
 | `grading-core` | Done. Deterministic `no_std` grading engine with canonical encodings, salted commitments, weighted scoring, multiple accepted answers and two cancellation policies. 84 tests, including property-based tests for commitment binding, encoding round-trips and adversarial decoding. |
 | Public-values ABI | Done. Fixed layouts of 92 bytes per sheet and 76 bytes per sitting, defined in one module shared by guests and verifiers. |
-| SP1 guests and CLI | Done. Both guests build under SP1 6.3.1 (pinned exactly, because the image ID is part of the claim) and execute in the zkVM: 42,518 cycles for one demo sheet, 119,700 for a three-candidate sitting. |
+| SP1 guests and CLI | Done. Both guests build under SP1 6.3.1 (pinned exactly, because the image ID is part of the claim) and execute in the zkVM: 42,460 cycles for one demo sheet, 120,245 for a three-candidate sitting. |
 | Batching | Done. One proof per sitting, plus a `log₂(n)` inclusion path per candidate. |
 | Forgery rejection | Done. The end-to-end pipeline (`zk/run-in-docker.sh`) rejects six forgeries: a proof checked against another candidate's answers, an unpublished commitment, a candidate absent from the sitting, a score raised after proving, the edited list re-audited in full, and swapped identities. |
 | Determinism | Verified. The Merkle root computed by the host equals the root committed by the guest, byte for byte, on x86-64 and RISC-V. |
@@ -312,7 +319,12 @@ docker run --rm -v "$PWD":/work \
 The host CLI, `quaestor-cli`, covers both sides of the protocol:
 
 ```sh
-quaestor-cli prove-batch  --key key.json --salt <hex> --sheets sheets/ \
+# before the exam: a secret salt, then the commitment to publish
+quaestor-cli new-salt     --out salt.hex
+quaestor-cli commit       --key key.json --salt-file salt.hex
+
+# after the exam: one proof for the sitting, then each candidate's check
+quaestor-cli prove-batch  --key key.json --salt-file salt.hex --sheets sheets/ \
                           --out batch.bin --manifest sitting.json
 quaestor-cli verify-batch --proof batch.bin --manifest sitting.json \
                           --commitment <hex> --sheet my-sheet.json

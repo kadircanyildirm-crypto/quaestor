@@ -336,6 +336,11 @@ pub enum BatchGradeError {
     /// One candidate's sheet was rejected. Carries the position, because with
     /// 10^5 sheets "scoring rejected inputs" is not a usable diagnosis.
     Sheet { index: u32, error: ScoreError },
+    /// Two sheets carry the same pseudonym. A candidate sits once; a second
+    /// sheet under the same pseudonym would give the institution two proven
+    /// results for one person to choose between, and the candidate's own check
+    /// (which finds their row by sheet hash) would never see the other one.
+    DuplicateCandidate { first: u32, second: u32 },
 }
 
 impl fmt::Display for BatchGradeError {
@@ -354,6 +359,11 @@ impl fmt::Display for BatchGradeError {
             BatchGradeError::Sheet { index, error } => {
                 write!(f, "candidate at position {index}: {error:?}")
             }
+            BatchGradeError::DuplicateCandidate { first, second } => write!(
+                f,
+                "candidates at positions {first} and {second} share a pseudonym: \
+                 each candidate can appear only once in a sitting"
+            ),
         }
     }
 }
@@ -385,6 +395,7 @@ pub fn grade_batch(
         }));
     }
     validate_key(key).map_err(BatchGradeError::Key)?;
+    reject_duplicate_candidates(sheets)?;
     let key_commitment = commit_answer_key(key, salt);
 
     let mut reports = Vec::with_capacity(sheets.len());
@@ -408,6 +419,32 @@ pub fn grade_batch(
         key_commitment,
         exam_id: key.exam_id,
     })
+}
+
+/// Every pseudonym in a sitting must be distinct.
+///
+/// Runs inside the guest, so a valid batch proof attests it: no sitting with a
+/// second sheet under a real candidate's pseudonym can be proven at all. This
+/// cannot be left to the candidate. Their check finds their row by sheet hash,
+/// so it confirms the row holding their real answers and never sees a second
+/// row under their name, and an auditor cannot see names at all.
+///
+/// Sorting a copy costs O(n log n) guest cycles; a quadratic scan would be
+/// cheaper for a classroom and ruinous for a national sitting.
+fn reject_duplicate_candidates(sheets: &[AnswerSheet]) -> Result<(), BatchGradeError> {
+    let mut ids: Vec<(&[u8; 32], u32)> = sheets
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (&s.student_pseudonym, i as u32))
+        .collect();
+    ids.sort_unstable();
+    match ids.windows(2).find(|w| w[0].0 == w[1].0) {
+        Some(w) => Err(BatchGradeError::DuplicateCandidate {
+            first: w[0].1,
+            second: w[1].1,
+        }),
+        None => Ok(()),
+    }
 }
 
 /// The whole student-side check for a batched sitting, in one call.

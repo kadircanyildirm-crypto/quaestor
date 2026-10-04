@@ -36,6 +36,11 @@ sequenceDiagram
 - The key used is the one committed **before the exam** (binding of SHA-256).
 - The sheet graded is the one with hash `H` — the student can detect
   substitution of their answers.
+- In a batched sitting, no pseudonym appears twice: `grade_batch` refuses the
+  sitting otherwise, inside the guest. Without this, a second sheet under a
+  real candidate's pseudonym would give the institution two proven results to
+  choose between, and the candidate's check, which finds their row by sheet
+  hash, would never see the second one.
 - Appeals are auditable: a post-appeal regrade is a *new* commitment `C'`
   plus proofs under `C'`; both commitments stay on the record.
 
