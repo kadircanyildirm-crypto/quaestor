@@ -26,9 +26,10 @@
 
 use std::fs;
 use std::process::ExitCode;
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
-use sp1_sdk::blocking::{ProveRequest, Prover, ProverClient};
+use sp1_sdk::blocking::{ProveRequest, Prover, ProverClient, SP1ProofMode};
 use sp1_sdk::{include_elf, Elf, ProvingKey, SP1ProofWithPublicValues, SP1Stdin};
 
 use grading_core::{
@@ -79,11 +80,11 @@ struct SheetFile {
 
 const USAGE: &str = "usage:\n  \
      quaestor-cli execute       --key <f> --salt <64-hex> --sheet <f>\n  \
-     quaestor-cli prove         --key <f> --salt <64-hex> --sheet <f> [--out proof.bin]\n  \
+     quaestor-cli prove         --key <f> --salt <64-hex> --sheet <f> [--out proof.bin] [--mode <m>]\n  \
      quaestor-cli verify        --proof <f> --commitment <64-hex> [--sheet <f>]\n  \
      quaestor-cli execute-batch --key <f> --salt <64-hex> (--sheet <f>).. [--sheets <dir>]\n  \
      quaestor-cli prove-batch   --key <f> --salt <64-hex> (--sheet <f>).. [--sheets <dir>]\n                             \
-       [--out batch.bin] [--manifest sitting.json]\n  \
+       [--out batch.bin] [--manifest sitting.json] [--mode <m>]\n  \
      quaestor-cli verify-batch  --proof <f> --manifest <f> --commitment <64-hex> [--sheet <f>]";
 
 fn main() -> ExitCode {
@@ -139,18 +140,30 @@ fn run(args: &[String], mode: Mode) -> Result<(), String> {
             print_public_values(public_values.as_slice())?;
         }
         Mode::Prove => {
+            let (kind, kind_name) = proof_mode(args)?;
+            let t = Instant::now();
             let pk = client.setup(elf()).map_err(|e| format!("setup failed: {e}"))?;
+            println!("setup          : {:.1} s", t.elapsed().as_secs_f64());
+            let t = Instant::now();
             let proof = client
                 .prove(&pk, stdin)
+                .mode(kind)
                 .run()
                 .map_err(|e| format!("proving failed: {e}"))?;
+            println!(
+                "proving        : {:.1} s ({kind_name})",
+                t.elapsed().as_secs_f64()
+            );
             client
                 .verify(&proof, pk.verifying_key(), None)
                 .map_err(|e| format!("self-verification failed: {e}"))?;
             print_public_values(proof.public_values.as_slice())?;
             let out = flag(args, "--out").unwrap_or_else(|_| "proof.bin".into());
             proof.save(&out).map_err(|e| format!("saving proof: {e}"))?;
-            println!("proof saved    : {out} (self-verified ✓)");
+            println!(
+                "proof saved    : {out}, {} bytes (self-verified ✓)",
+                file_len(&out)
+            );
         }
     }
     Ok(())
@@ -173,9 +186,15 @@ fn verify(args: &[String]) -> Result<(), String> {
     let proof = SP1ProofWithPublicValues::load(&path).map_err(|e| format!("loading proof: {e}"))?;
     let client = ProverClient::from_env();
     let pk = client.setup(elf()).map_err(|e| format!("setup failed: {e}"))?;
+    // Timed alone: the setup above re-derives the proving key and dwarfs this.
+    let t = Instant::now();
     client
         .verify(&proof, pk.verifying_key(), None)
         .map_err(|e| format!("PROOF INVALID: {e}"))?;
+    println!(
+        "verify time    : {:.1} ms (SP1 proof only)",
+        t.elapsed().as_secs_f64() * 1e3
+    );
 
     // A cryptographically valid proof of the wrong statement is exactly the
     // attack this system exists to catch, so a mismatch here is a hard failure
@@ -348,19 +367,31 @@ fn run_batch(args: &[String], mode: Mode) -> Result<(), String> {
             public_values.as_slice().to_vec()
         }
         Mode::Prove => {
+            let (kind, kind_name) = proof_mode(args)?;
+            let t = Instant::now();
             let pk = client
                 .setup(batch_elf())
                 .map_err(|e| format!("setup failed: {e}"))?;
+            println!("setup          : {:.1} s", t.elapsed().as_secs_f64());
+            let t = Instant::now();
             let proof = client
                 .prove(&pk, stdin)
+                .mode(kind)
                 .run()
                 .map_err(|e| format!("proving failed: {e}"))?;
+            println!(
+                "proving        : {:.1} s ({kind_name})",
+                t.elapsed().as_secs_f64()
+            );
             client
                 .verify(&proof, pk.verifying_key(), None)
                 .map_err(|e| format!("self-verification failed: {e}"))?;
             let out = flag(args, "--out").unwrap_or_else(|_| "batch.bin".into());
             proof.save(&out).map_err(|e| format!("saving proof: {e}"))?;
-            println!("proof saved    : {out} (self-verified ✓)");
+            println!(
+                "proof saved    : {out}, {} bytes (self-verified ✓)",
+                file_len(&out)
+            );
             proof.public_values.as_slice().to_vec()
         }
     };
@@ -433,9 +464,15 @@ fn verify_batch(args: &[String]) -> Result<(), String> {
     let pk = client
         .setup(batch_elf())
         .map_err(|e| format!("setup failed: {e}"))?;
+    // Timed alone: the setup above re-derives the proving key and dwarfs this.
+    let t = Instant::now();
     client
         .verify(&proof, pk.verifying_key(), None)
         .map_err(|e| format!("PROOF INVALID: {e}"))?;
+    println!(
+        "verify time    : {:.1} ms (SP1 proof only)",
+        t.elapsed().as_secs_f64() * 1e3
+    );
 
     let pv = decode_batch_public_values(proof.public_values.as_slice())
         .map_err(|e| format!("REJECTED — {e}"))?;
@@ -616,6 +653,26 @@ fn print_report(r: &ScoreReport) {
         "correct/wrong/blank/cancelled: {}/{}/{}/{}",
         r.correct, r.wrong, r.blank, r.cancelled
     );
+}
+
+/// `--mode core|compressed|groth16|plonk`, core when absent. Core is the
+/// fastest to produce and grows with the run; compressed is constant-size;
+/// groth16 and plonk wrap it into a few hundred bytes that a browser or a
+/// contract can verify (groth16 needs about 14 GB on top, plonk about 64 GB).
+fn proof_mode(args: &[String]) -> Result<(SP1ProofMode, &'static str), String> {
+    match flag(args, "--mode").as_deref() {
+        Err(_) | Ok("core") => Ok((SP1ProofMode::Core, "core")),
+        Ok("compressed") => Ok((SP1ProofMode::Compressed, "compressed")),
+        Ok("groth16") => Ok((SP1ProofMode::Groth16, "groth16")),
+        Ok("plonk") => Ok((SP1ProofMode::Plonk, "plonk")),
+        Ok(other) => Err(format!(
+            "unknown --mode {other}: expected core, compressed, groth16 or plonk"
+        )),
+    }
+}
+
+fn file_len(path: &str) -> u64 {
+    fs::metadata(path).map(|m| m.len()).unwrap_or(0)
 }
 
 fn flag(args: &[String], name: &str) -> Result<String, String> {
