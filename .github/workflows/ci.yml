@@ -33,7 +33,7 @@ jobs:
         run: cargo build -p grading-core --no-default-features
 
   zk:
-    name: sp1 guest + end-to-end proof
+    name: sp1 guests + end-to-end checks (mock prover)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # The SP1 toolchain is a multi-GB install and proving is minutes of CPU, so
@@ -41,6 +41,13 @@ jobs:
     # else in the repo compiles the guest, and an uncompiled guest means the
     # project's central claim is untested.
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    env:
+      # A hosted runner has 16 GB; SP1 6.3.1 proving needs at least 24 GB and
+      # is OOM-killed below that. The mock prover still builds both guests,
+      # executes them in the zkVM and runs every claim check and forgery case
+      # below; only SP1's cryptography is skipped. Real proofs need a larger
+      # machine (see zk/README.md).
+      SP1_PROVER: mock
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -185,7 +192,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: demo-proof
+          name: demo-proof-${{ env.SP1_PROVER }}
           path: |
             zk/script/proof.bin
             zk/script/batch.bin
