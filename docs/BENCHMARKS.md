@@ -1,5 +1,11 @@
 # Benchmarks
 
+> **Update, 2026-10-04:** the first real proofs exist. The demo exam proves on a
+> 4-core, 16 GB machine with swap in about 82 s (core), 5 min (compressed) and
+> 32–38 min (groth16, 1.8 KB). Details and verifying keys are in
+> [`../proofs/2026-10-04`](../proofs/2026-10-04). The sections below describe
+> cycle counts, which remain the only figures at sitting scale.
+
 ## What this measures — and what it does not
 
 **Measured:** zkVM *cycle counts* — how much work the guest performs — as a
@@ -181,7 +187,8 @@ node bench/verify-wasm.mjs
 
 ## Still missing
 
-- Proving time, proof size, verification time — needs a 32 GB machine
+- Proving time, proof size and verification time at sitting scale (the demo
+  exam's are in `proofs/2026-10-04`)
 - The same curve with hashing precompiles enabled
 - GPU (`SP1_PROVER=cuda`) figures
 - Verification of the SP1 proof itself in a browser. The candidate-side claim
