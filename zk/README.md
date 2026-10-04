@@ -153,6 +153,38 @@ negative case below is this project's code, not SP1's) and the wrong tool for
 any number. `run-in-docker.sh` refuses to present a mock run's durations as
 measurements.
 
+## Real proofs on a rented server
+
+`prove-on-server.sh` turns a fresh Ubuntu 24.04 server with 32 GB or more
+(64 GB recommended; a Hetzner CCX43 costs about €0.44 an hour) into one complete
+measurement session:
+
+```sh
+curl -sSfL https://raw.githubusercontent.com/kadircanyildirm-crypto/quaestor/main/zk/prove-on-server.sh | bash
+```
+
+It installs SP1 6.3.1 and Docker, then runs `run-in-docker.sh` with the real
+CPU prover. That run proves the demo exam per sheet and per sitting and refuses
+all six forgeries. Next it proves the demo, and the 100- and 400-candidate
+benchmark sittings, in compressed and groth16 mode, and checks that real
+groth16 proofs still refuse forgeries. Everything lands in
+`bench/out/proofs.md`.
+
+Proving runs on your own machine on purpose. Succinct's prover network would
+remove the memory requirement, but its provers receive the guest's private
+input, which here is the answer key and the salt.
+
+### Proof modes
+
+`prove` and `prove-batch` take `--mode core|compressed|groth16|plonk` (default
+`core`). Core proofs are the fastest to produce and grow with the run.
+Compressed proofs have a constant size. Groth16 (about 260 bytes) and PLONK
+wrap a compressed proof small enough to verify in a browser or a smart
+contract; groth16 needs Docker and about 14 GB more memory, PLONK about 64 GB.
+Every prove prints its setup and proving time and the proof's size. Every
+verify prints the time of the SP1 verification call alone, apart from the setup
+that precedes it.
+
 ## Public values: single sheet (92 bytes, fixed)
 
 | offset | size | field |
