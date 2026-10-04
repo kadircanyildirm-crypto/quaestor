@@ -157,6 +157,11 @@ machine an unrelated `kind` cluster was quietly holding 2.5 GB of Docker's
 cluster was up — but it is worth a `docker stats` before concluding anything
 about memory.
 
+The first real proofs (2026-10-04, [`../proofs/2026-10-04`](../proofs/2026-10-04))
+came from a 4-core, 16 GB GitHub Codespace with 32 GB of swap: the CLI process
+peaked at 9.4 GB for a core proof and about 14 GB for compressed and groth16.
+So 16 GB with swap is enough for the demo exam, slowly.
+
 **Plan for 32 GB and 8+ cores**, or a CUDA box (`SP1_PROVER=cuda`) for anything
 at sitting scale. Everything else in this repo — the whole of `grading-core`,
 both guests' compilation, `execute`, and every claim check — runs comfortably

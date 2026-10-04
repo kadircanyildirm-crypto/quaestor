@@ -15,9 +15,11 @@ public data and their own answer sheet, each candidate can confirm that the
 score published for them is the score that was proven.
 
 > [!NOTE]
-> The grading core, both zkVM guests and the complete verification pipeline are
-> implemented and tested. A real SP1 proof has not been generated yet: proving
-> requires at least 24 GB of memory. See [Status](#status).
+> The first real SP1 proofs were generated on 2026-10-04 and are in
+> [`proofs/2026-10-04`](proofs/2026-10-04). On a 4-core machine the demo exam
+> proves in 82 s (core) and in 32–38 min as a 1.8 KB groth16 proof. Proving at
+> sitting scale is not measured yet, and guest builds are not yet reproducible
+> across machines. See [Status](#status).
 
 ## Walkthrough
 
@@ -245,9 +247,11 @@ sittings, for example one per exam centre, each with its own proof.
 
 ### Not measured yet
 
-- Proving time and proof size, on CPU and GPU. SP1 6.3.1 needs at least 24 GB of
-  memory; see [Status](#status).
-- Verification of the SP1 proof, natively and in a browser.
+- Proving at sitting scale (100 candidates and more), and on a larger CPU or a
+  GPU. The first real proofs, of the demo exam on a 4-core machine, are in
+  [`proofs/2026-10-04`](proofs/2026-10-04).
+- Verification of the SP1 proof in a browser. Natively it takes 57–382 ms,
+  depending on the proof type.
 - Cycle counts with SP1's SHA-256 precompiles enabled.
 
 <details>
@@ -294,8 +298,8 @@ The full analysis is in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 | Batching | Done. One proof per sitting, plus a `log₂(n)` inclusion path per candidate. |
 | Forgery rejection | Done. The end-to-end pipeline (`zk/run-in-docker.sh`) rejects six forgeries: a proof checked against another candidate's answers, an unpublished commitment, a candidate absent from the sitting, a score raised after proving, the edited list re-audited in full, and swapped identities. |
 | Determinism | Verified. The Merkle root computed by the host equals the root committed by the guest, byte for byte, on x86-64 and RISC-V. |
-| Proof generation | **Blocked on hardware.** SP1 6.3.1 requires at least 24 GB of memory, and proving was killed for lack of memory on a 16 GB machine. All end-to-end runs so far used `SP1_PROVER=mock`, which exercises quaestor's logic but not SP1's cryptography. |
-| Planned | Proving time, proof size and verification benchmarks (CPU and GPU), a browser verifier, and a pilot with a real course. See [docs/ROADMAP.md](docs/ROADMAP.md). |
+| Proof generation | **Done for the demo exam** (2026-10-04, a 4-core, 16 GB Codespace with 32 GB of swap). One sheet and the three-candidate sitting each prove in about 82 s (core), 5 min (compressed) and 32–38 min (groth16, 1.8 KB); verification takes 57–382 ms, and real groth16 proofs refuse forgeries. Not yet measured at sitting scale. Guest builds are not yet reproducible across machines, so the verifying keys are recorded with the [proofs](proofs/2026-10-04). |
+| Planned | Reproducible guest builds, proving benchmarks at sitting scale and on a GPU, a browser verifier, and a pilot with a real course. See [docs/ROADMAP.md](docs/ROADMAP.md). |
 
 ## Getting started
 
@@ -341,6 +345,7 @@ zk/script/             quaestor-cli: execute, prove and verify, per sheet and pe
 examples/demo-exam/    demo answer key and answer sheets
 bench/                 benchmark scripts and chart generator
 explainer/             walkthrough page and recording scripts behind the animations
+proofs/                real SP1 proofs, with how they were made and their verifying keys
 docs/                  architecture, benchmarks and roadmap
 ```
 
