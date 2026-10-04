@@ -168,7 +168,37 @@ institution proves once per sitting, and the work each candidate does to check
 their own result. Both are measured below. What is not measured yet is listed at
 the end of this section.
 
-### Proving: one proof per sitting
+### Real proofs
+
+The first SP1 proofs of the demo exam were generated on 2026-10-04 on a GitHub
+Codespace (4 cores of an AMD EPYC 7763, 15 GB RAM plus 32 GB of swap) with
+SP1 6.3.1:
+
+| Proof type | Proving time | Proof size | Verification |
+|---|---:|---:|---:|
+| Core | 82–84 s | 2.8 MB | 124 ms |
+| Compressed | 5.1 min | 1.3 MB | 57–66 ms |
+| Groth16 | 32–38 min | 1.8 KB | 370–382 ms |
+
+- **Size does not set the cost at this scale.** One sheet (42,460 cycles) and
+  the three-candidate sitting (120,245 cycles) prove within a few seconds of
+  each other. Both sit far below one 16.7M-cycle shard, so SP1's fixed overhead
+  dominates.
+- **Groth16 is the publishable form.** It is 1.8 KB whatever the sitting size,
+  small enough for a browser or a smart contract to verify.
+- **The checks hold on real proofs.** With the real groth16 proof, the verifier
+  refused both forgeries tried: another candidate's answers, and a commitment
+  that was never published.
+- **These are upper bounds.** The machine is small, proving spilled into swap,
+  and the first groth16 run also downloaded SP1's circuit artifacts. A larger
+  CPU or a GPU should be much faster.
+
+The proofs, the published results list, both programs' verifying keys and the
+checksums are in [`proofs/2026-10-04`](proofs/2026-10-04). The guest build is
+not yet reproducible across machines, so these proofs verify against the
+recorded verifying keys, not against a guest you build yourself.
+
+### Proving work: one proof per sitting
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/bench-proving-dark.svg">
