@@ -29,10 +29,10 @@ while SP1 ships hashing precompiles (see "What the shape reveals" below).
 | | |
 |---|---|
 | CPU | 12th Gen Intel Core i5-12450H (12 logical cores) |
-| RAM | 15.7 GB; Docker/WSL2 was capped at 8.19 GB, and unrelated containers held ~2.5 GB of that for part of the session |
+| RAM | 15.7 GB. First run: Docker/WSL2 capped at 8.19 GB, with unrelated containers holding ~2.5 GB of it for part of the session. Current figures: container capped at 10 GB |
 | OS | Windows 11 Pro, Docker Desktop → WSL2, `rust:1` container |
 | SP1 | 6.3.1, guest toolchain `rustc 1.94.0-dev (succinct)` |
-| Date | 2026-07-27 |
+| Date | 2026-07-27 (first run); 2026-10-04 (the figures below, re-measured after adding the duplicate-candidate check) |
 
 ## Reproducing
 
@@ -53,24 +53,29 @@ two accepted answers (a post-appeal ruling).
 
 | candidates | total cycles | per candidate | marginal |
 |---:|---:|---:|---:|
-| 1 | 248,862 | 248,862 | — |
-| 10 | 609,370 | 60,937 | 40,056 |
-| 100 | 4,193,494 | 41,934 | 39,823 |
-| 200 | 8,174,020 | 40,870 | 39,805 |
-| 400 | 16,134,045 | 40,335 | 39,800 |
-| 800 | *executor OOM* | — | — |
+| 1 | 249,323 | 249,323 | — |
+| 10 | 613,899 | 61,389 | 40,508 |
+| 100 | 4,238,149 | 42,381 | 40,269 |
+| 200 | 8,263,275 | 41,316 | 40,251 |
+| 400 | 16,312,486 | 40,781 | 40,246 |
+| 800 | *executor OOM* (first run) | — | — |
 
 Fitted over n ≥ 100:
 
 ```
-cycles ≈ 214,000 + 39,800 × n
+cycles ≈ 213,000 + 40,250 × n
 ```
 
-The marginal cost is consistent to 0.6% across four independent intervals, and
-the model predicts n = 400 to within 0.003%. It is slightly loose at the small
-end — the implied fixed cost drifts from 209,062 at n = 1 to 214,005 at n = 400,
-about 2.4% — so the single-candidate figures below are the *measured* ones, not
+The marginal cost is consistent to 0.7% across four independent intervals, and
+the model predicts n = 200 to within 0.005%. It is slightly loose at the small
+end — the implied fixed cost drifts from 209,073 at n = 1 to 213,370 at n = 400,
+about 2% — so the single-candidate figures below are the *measured* ones, not
 the fit's.
+
+Compared with the first run (2026-07-27), every sitting costs about 1.1% more:
+roughly 450 cycles per candidate at these sizes. That is the check that no
+pseudonym appears twice in a sitting, which sorts the candidates' pseudonyms
+inside the guest.
 
 The 800-candidate row is not a property of quaestor: the SP1 *executor* itself
 ran out of memory on this laptop. Execution ceiling here is between 400 and 800
@@ -78,15 +83,15 @@ candidates; the proving ceiling is zero.
 
 ## What batching buys
 
-The fixed 213,500 cycles are key validation (a quadratic id scan), the canonical
+The fixed ~213,000 cycles are key validation (a quadratic id scan), the canonical
 key encoding, and the key commitment hash. None of it depends on the sheet, so
 a per-sheet proof pays all of it for one candidate while a sitting shares it:
 
 | | cycles per candidate |
 |---|---:|
-| one proof per sheet (measured, n = 1) | 248,862 |
-| one proof per sitting (marginal) | 39,800 |
-| **ratio** | **6.25×** |
+| one proof per sheet (measured, n = 1) | 249,323 |
+| one proof per sitting (marginal) | 40,250 |
+| **ratio** | **6.19×** |
 
 That is only the *execution* saving. The larger win is orthogonal and not
 captured in this table: a sitting of n candidates produces **one** proof instead
@@ -96,15 +101,20 @@ falls by a factor of n. Each candidate receives that one proof plus a
 
 ## Projection to real sittings
 
-SP1's default shard is `1 << 24` = 16,777,216 cycles, so at 39,800 cycles per
+SP1's default shard is `1 << 24` = 16,777,216 cycles, so at 40,250 cycles per
 candidate a shard holds about **416 candidates**.
 
 | sitting | cycles | shards |
 |---:|---:|---:|
-| 1,000 | 40.0 M | 3 |
-| 10,000 | 398 M | 24 |
-| 100,000 | 3.98 G | 238 |
-| 1,000,000 | 39.8 G | 2,378 |
+| 1,000 | 40.5 M | 3 |
+| 10,000 | 403 M | 25 |
+| 100,000 | 4.03 G | 240 |
+| 1,000,000 | 40.2 G | 2,399 |
+
+The duplicate-candidate check grows as n log n rather than n, so at a million
+candidates these linear projections are low by roughly 1–2%. A sitting is also
+capped at 2²⁰ = 1,048,576 candidates (`MAX_BATCH`): a larger exam is graded as
+several sittings, for example one per exam centre, each with its own proof.
 
 The operationally important consequence: **memory does not grow with sitting
 size — time does.** Shards are proven in sequence and only a bounded number are
@@ -115,7 +125,7 @@ longer. Scaling this system calls for a patient machine, not an exotic one.
 ## What the shape reveals
 
 Raising the exam from 5 to 100 questions — a 20× increase in grading work —
-moved per-candidate cost only about 33% (roughly 30,000 → 39,800 cycles). Per
+moved per-candidate cost only about 33% (roughly 30,000 → 40,000 cycles). Per
 candidate, therefore, quaestor spends most of its cycles **hashing, not
 grading**: the answer-sheet hash, the report encoding, and the leaf hash.
 
@@ -149,7 +159,7 @@ inclusion path, which is what the results list must deliver to each candidate
 beside the proof. Both it and the check time grow with log₂ n: about 0.6 µs
 and 32 bytes per doubling in WebAssembly. Grading a million-sheet sitting
 natively with `grade_batch`, which the institution does to publish the results
-list, took 1.3 s.
+list, took 1.4 s (including the duplicate-candidate check).
 
 **Method.** The exam has the same shape as the cycle benchmark (100 questions,
 five choices, one cancelled, every 17th with two accepted answers), generated

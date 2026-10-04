@@ -207,7 +207,7 @@ fn main() {
                 .map(|s| format!("\"{}\"", hex(s)))
                 .collect();
             fixtures.push(format!(
-                "{{\"n\":{},\"index\":{},\"batch_public_values\":\"{}\",\"commitment\":\"{}\",\"report\":\"{}\",\"siblings\":[{}],\"pseudonym\":\"{}\",\"answers\":[{}]}}",
+                "{{\"n\":{},\"exam_id\":{EXAM_ID},\"index\":{},\"batch_public_values\":\"{}\",\"commitment\":\"{}\",\"report\":\"{}\",\"siblings\":[{}],\"pseudonym\":\"{}\",\"answers\":[{}]}}",
                 row.n,
                 row.path.index,
                 hex(&row.public_values),

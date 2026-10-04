@@ -3,8 +3,12 @@
 //! only moves bytes in and out of linear memory. The only intended caller is
 //! JavaScript passing buffers it allocated with `q_alloc`.
 //!
-//! Key input:   [n][num_choices][policy] then per question [weight][cancelled][accepted bitmask]
-//! Sheet input: [32-byte pseudonym][n answers, 0xFF = blank]
+//! All integers are little-endian. Every field the canonical encoding commits
+//! to is carried, so commitments and sheet hashes match those of any exam:
+//!
+//! Key:   [exam_id u64][num_choices u8][policy u8: 0 full credit, 1 redistribute][n u32]
+//!        then per question [question_id u32][weight u32][cancelled u8][k u8][k accepted choices]
+//! Sheet: [exam_id u64][pseudonym 32 bytes][n u32][n answers, 0xFF = blank]
 
 // Raw pointers are the ABI: every one comes from JavaScript, pointing into
 // buffers it allocated with `q_alloc` and sized for the call.
@@ -15,8 +19,6 @@ use grading_core::{
     encode_batch_public_values, encode_public_values, grade_batch, hash_answer_sheet, leaf_hash,
     score, AnswerKey, AnswerSheet, CancelPolicy, KeyEntry, MerklePath, VerifyError,
 };
-
-const EXAM_ID: u64 = 20260701;
 
 fn input<'a>(p: *const u8, len: usize) -> &'a [u8] {
     unsafe { core::slice::from_raw_parts(p, len) }
@@ -30,49 +32,78 @@ fn arr32(p: *const u8) -> [u8; 32] {
     input(p, 32).try_into().unwrap()
 }
 
+/// A bounds-checked little-endian reader: malformed input yields `None`, never a panic.
+struct Reader<'a>(&'a [u8]);
+
+impl<'a> Reader<'a> {
+    fn take(&mut self, n: usize) -> Option<&'a [u8]> {
+        if self.0.len() < n {
+            return None;
+        }
+        let (head, rest) = self.0.split_at(n);
+        self.0 = rest;
+        Some(head)
+    }
+    fn u8(&mut self) -> Option<u8> {
+        self.take(1).map(|b| b[0])
+    }
+    fn u32(&mut self) -> Option<u32> {
+        self.take(4).map(|b| u32::from_le_bytes(b.try_into().unwrap()))
+    }
+    fn u64(&mut self) -> Option<u64> {
+        self.take(8).map(|b| u64::from_le_bytes(b.try_into().unwrap()))
+    }
+    fn done(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 fn parse_key(b: &[u8]) -> Option<AnswerKey> {
-    if b.len() < 3 {
-        return None;
-    }
-    let n = b[0] as usize;
-    if b.len() != 3 + 3 * n {
-        return None;
-    }
-    let cancel_policy = match b[2] {
+    let mut r = Reader(b);
+    let exam_id = r.u64()?;
+    let num_choices = r.u8()?;
+    let cancel_policy = match r.u8()? {
         0 => CancelPolicy::FullCredit,
         1 => CancelPolicy::Redistribute,
         _ => return None,
     };
-    let entries = (0..n)
-        .map(|i| {
-            let q = &b[3 + 3 * i..6 + 3 * i];
-            KeyEntry {
-                question_id: i as u32 + 1,
-                weight: q[0] as u32,
-                accepted: (0..8u8).filter(|c| q[2] & (1 << c) != 0).collect(),
-                cancelled: q[1] != 0,
-            }
-        })
-        .collect();
-    Some(AnswerKey {
-        exam_id: EXAM_ID,
-        num_choices: b[1],
+    let n = r.u32()? as usize;
+    let mut entries = Vec::with_capacity(n.min(b.len()));
+    for _ in 0..n {
+        let question_id = r.u32()?;
+        let weight = r.u32()?;
+        let cancelled = r.u8()? != 0;
+        let k = r.u8()? as usize;
+        let accepted = r.take(k)?.to_vec();
+        entries.push(KeyEntry {
+            question_id,
+            weight,
+            accepted,
+            cancelled,
+        });
+    }
+    r.done().then_some(AnswerKey {
+        exam_id,
+        num_choices,
         cancel_policy,
         entries,
     })
 }
 
 fn parse_sheet(b: &[u8]) -> Option<AnswerSheet> {
-    if b.len() < 32 {
-        return None;
-    }
-    Some(AnswerSheet {
-        exam_id: EXAM_ID,
-        student_pseudonym: b[..32].try_into().unwrap(),
-        answers: b[32..]
-            .iter()
-            .map(|&a| if a == 0xFF { None } else { Some(a) })
-            .collect(),
+    let mut r = Reader(b);
+    let exam_id = r.u64()?;
+    let student_pseudonym = r.take(32)?.try_into().unwrap();
+    let n = r.u32()? as usize;
+    let answers = r
+        .take(n)?
+        .iter()
+        .map(|&a| if a == 0xFF { None } else { Some(a) })
+        .collect();
+    r.done().then_some(AnswerSheet {
+        exam_id,
+        student_pseudonym,
+        answers,
     })
 }
 

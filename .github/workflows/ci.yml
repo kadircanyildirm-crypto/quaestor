@@ -59,17 +59,24 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.sp1
-          key: sp1-v6-${{ runner.os }}
+          key: sp1-v6.3.1-${{ runner.os }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: zk/script
 
       - name: Install SP1
+        env:
+          # sp1up queries the GitHub API; anonymous calls from shared runner
+          # IPs hit the rate limit, so authenticate them.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
+          # Pinned to the version the guests are built against: a different
+          # toolchain builds a different ELF, and with it a different image ID.
           if [ ! -x "$HOME/.sp1/bin/cargo-prove" ]; then
             curl -sSfL --retry 5 --retry-all-errors \
-              https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up | bash
+              https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up |
+              bash -s -- --version v6.3.1 --token "$GITHUB_TOKEN"
           fi
           echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
 

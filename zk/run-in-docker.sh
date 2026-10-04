@@ -47,9 +47,9 @@ if ! command -v cargo-prove >/dev/null 2>&1; then
   # The GitHub sp1up script is the complete installer: it installs
   # cargo-prove and links the succinct rust toolchain in one pass.
   if [ -f zk/.cache/sp1up ]; then
-    bash zk/.cache/sp1up
+    bash zk/.cache/sp1up --version v6.3.1
   else
-    curl -sSfL --retry 5 --retry-all-errors https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up | bash
+    curl -sSfL --retry 5 --retry-all-errors https://raw.githubusercontent.com/succinctlabs/sp1/main/sp1up/sp1up | bash -s -- --version v6.3.1
   fi
 fi
 cargo-prove prove --version

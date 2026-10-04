@@ -49,6 +49,21 @@ cargo run --release -- verify \
   --sheet ../../examples/demo-exam/sheet.json
 ```
 
+### Before a real exam
+
+The demo passes its salt with `--salt`, which is fine for a salt everyone
+knows. A real salt is a secret, and a value on the command line is visible to
+other users of the machine and stays in shell history, so every command that
+takes `--salt` also takes `--salt-file`:
+
+```sh
+# 32 random bytes from the OS, in a new owner-only file (never overwritten)
+cargo run --release -- new-salt --out salt.hex
+
+# the commitment to publish before the exam: needs no answer sheets, no zkVM
+cargo run --release -- commit --key key.json --salt-file salt.hex
+```
+
 ### A whole sitting, proven once
 
 ```sh

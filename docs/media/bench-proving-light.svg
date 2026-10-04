@@ -30,23 +30,23 @@
 <line x1="684.0" y1="382" x2="684.0" y2="387" stroke="#c8d1da" stroke-width="1"/>
 <text x="684.0" y="403.0" font-size="12" font-weight="400" fill="#59636e" text-anchor="middle">400</text>
 <text x="374.0" y="430.0" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="middle">Candidates in the sitting (log scale)</text>
-<path d="M64.0,130.4 L684.0,130.4" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M64.0,130.4 L302.3,320.4 L540.5,339.6 L612.3,340.7 L684.0,341.2" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="64.0" cy="130.4" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
-<circle cx="302.3" cy="320.4" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
-<circle cx="540.5" cy="339.6" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
-<circle cx="612.3" cy="340.7" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
-<circle cx="684.0" cy="341.2" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
-<line x1="658.0" y1="138.4" x2="658.0" y2="333.2" stroke="#59636e" stroke-width="1"/>
-<path d="M654.0,144.4 L658.0,138.4 L662.0,144.4" fill="none" stroke="#59636e" stroke-width="1"/>
-<path d="M654.0,327.2 L658.0,333.2 L662.0,327.2" fill="none" stroke="#59636e" stroke-width="1"/>
-<text x="648.0" y="231.8" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end">6.2× less</text>
-<text x="648.0" y="248.8" font-size="12" font-weight="400" fill="#59636e" text-anchor="end">work per candidate</text>
-<line x1="696.0" y1="130.4" x2="708.0" y2="130.4" stroke="#eb6834" stroke-width="2.5" stroke-linecap="round"/>
-<text x="714.0" y="134.4" font-size="12.5" font-weight="600" fill="#1f2328" text-anchor="start">One proof per sheet</text>
-<text x="714.0" y="150.4" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">248,862 cycles</text>
-<line x1="696.0" y1="341.2" x2="708.0" y2="341.2" stroke="#2a78d6" stroke-width="2.5" stroke-linecap="round"/>
-<text x="714.0" y="345.2" font-size="12.5" font-weight="600" fill="#1f2328" text-anchor="start">One proof per sitting</text>
-<text x="714.0" y="361.2" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">40,335 cycles</text>
-<text x="66.0" y="116.4" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">At 1 candidate the two coincide</text>
+<path d="M64.0,130.0 L684.0,130.0" fill="none" stroke="#eb6834" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M64.0,130.0 L302.3,319.9 L540.5,339.2 L612.3,340.2 L684.0,340.8" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="64.0" cy="130.0" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
+<circle cx="302.3" cy="319.9" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
+<circle cx="540.5" cy="339.2" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
+<circle cx="612.3" cy="340.2" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
+<circle cx="684.0" cy="340.8" r="4.5" fill="#2a78d6" stroke="#ffffff" stroke-width="2"/>
+<line x1="658.0" y1="138.0" x2="658.0" y2="332.8" stroke="#59636e" stroke-width="1"/>
+<path d="M654.0,144.0 L658.0,138.0 L662.0,144.0" fill="none" stroke="#59636e" stroke-width="1"/>
+<path d="M654.0,326.8 L658.0,332.8 L662.0,326.8" fill="none" stroke="#59636e" stroke-width="1"/>
+<text x="648.0" y="231.4" font-size="13" font-weight="600" fill="#1f2328" text-anchor="end">6.1× less</text>
+<text x="648.0" y="248.4" font-size="12" font-weight="400" fill="#59636e" text-anchor="end">work per candidate</text>
+<line x1="696.0" y1="130.0" x2="708.0" y2="130.0" stroke="#eb6834" stroke-width="2.5" stroke-linecap="round"/>
+<text x="714.0" y="134.0" font-size="12.5" font-weight="600" fill="#1f2328" text-anchor="start">One proof per sheet</text>
+<text x="714.0" y="150.0" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">249,323 cycles</text>
+<line x1="696.0" y1="340.8" x2="708.0" y2="340.8" stroke="#2a78d6" stroke-width="2.5" stroke-linecap="round"/>
+<text x="714.0" y="344.8" font-size="12.5" font-weight="600" fill="#1f2328" text-anchor="start">One proof per sitting</text>
+<text x="714.0" y="360.8" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">40,781 cycles</text>
+<text x="66.0" y="116.0" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">At 1 candidate the two coincide</text>
 </svg>

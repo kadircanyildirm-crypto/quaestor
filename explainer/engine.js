@@ -10,21 +10,23 @@ function makeEngine(ex) {
   const take = (p, n) => mem().slice(p, p + n);
   const free = (p, n) => ex.q_free(p, n || 1);
 
-  const keyBytes = (key) => {
-    const out = [key.questions.length, key.numChoices, key.policy === "redistribute" ? 1 : 0];
-    for (const q of key.questions) {
-      let mask = 0;
-      for (const c of q.accepted) mask |= 1 << c;
-      out.push(q.weight, q.cancelled ? 1 : 0, mask);
-    }
-    return Uint8Array.from(out);
+  // The grading-wasm input format (crates/grading-wasm/src/lib.rs), little-endian.
+  const bytes = (parts) => {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let off = 0;
+    for (const p of parts) out.set(p, (off += p.length) - p.length);
+    return out;
   };
-  const sheetBytes = (sheet) => {
-    const b = new Uint8Array(32 + sheet.answers.length);
-    b.set(hexToBytes(sheet.pseudonym), 0);
-    sheet.answers.forEach((a, i) => (b[32 + i] = a === null ? 0xff : a));
-    return b;
-  };
+  const u32 = (v) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, v, true); return b; };
+  const u64 = (v) => { const b = new Uint8Array(8); new DataView(b.buffer).setBigUint64(0, BigInt(v), true); return b; };
+  const keyBytes = (key) => bytes([
+    u64(key.examId), [key.numChoices, key.policy === "redistribute" ? 1 : 0], u32(key.questions.length),
+    ...key.questions.flatMap((q) => [u32(q.id), u32(q.weight), [q.cancelled ? 1 : 0, q.accepted.length], q.accepted]),
+  ]);
+  const sheetBytes = (sheet) => bytes([
+    u64(sheet.examId), hexToBytes(sheet.pseudonym), u32(sheet.answers.length),
+    sheet.answers.map((a) => (a === null ? 0xff : a)),
+  ]);
 
   function withBufs(inputs, outLen, fn) {
     const ptrs = inputs.map((b) => (b ? put(b) : 0));
